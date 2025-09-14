@@ -21,7 +21,7 @@ const ChatScreen: React.FC = () => {
   const { user, logout } = useAuth();
   const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const conversationId = 'serish-jiya-chat'; // Fixed conversation ID
+  const conversationId = '00000000-0000-0000-0000-000000000001'; // Fixed UUID for the chat
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -34,12 +34,12 @@ const ChatScreen: React.FC = () => {
   useEffect(() => {
     if (!user) return;
 
-    // Load existing messages
-    loadMessages();
+    // Initialize conversation and load messages
+    initializeChat();
 
     // Set up real-time subscription
     const channel = supabase
-      .channel('messages')
+      .channel('serish-jiya-chat')
       .on(
         'postgres_changes',
         {
@@ -50,7 +50,12 @@ const ChatScreen: React.FC = () => {
         },
         (payload) => {
           const newMessage = payload.new as Message;
-          setMessages(prev => [...prev, newMessage]);
+          // Only add if not already in messages (prevent duplicates)
+          setMessages(prev => {
+            const exists = prev.find(m => m.id === newMessage.id);
+            if (exists) return prev;
+            return [...prev, newMessage];
+          });
         }
       )
       .subscribe();
@@ -59,6 +64,33 @@ const ChatScreen: React.FC = () => {
       supabase.removeChannel(channel);
     };
   }, [user]);
+
+  const initializeChat = async () => {
+    try {
+      // First, ensure conversation exists
+      const { data: existingConv } = await supabase
+        .from('conversations')
+        .select('id')
+        .eq('id', conversationId)
+        .single();
+
+      if (!existingConv) {
+        // Create the conversation
+        await supabase
+          .from('conversations')
+          .insert({
+            id: conversationId,
+            created_by: user?.id || 'serish'
+          });
+      }
+
+      // Load existing messages
+      loadMessages();
+    } catch (error) {
+      console.error('Error initializing chat:', error);
+      loadMessages(); // Still try to load messages
+    }
+  };
 
   const loadMessages = async () => {
     try {
@@ -84,23 +116,31 @@ const ChatScreen: React.FC = () => {
     e.preventDefault();
     if (!newMessage.trim() || !user) return;
 
+    const messageContent = newMessage.trim();
+    setNewMessage(''); // Clear input immediately for better UX
     setIsLoading(true);
+    
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('messages')
         .insert({
-          content: newMessage.trim(),
+          content: messageContent,
           sender_id: user.id,
-          conversation_id: conversationId
-        });
+          conversation_id: conversationId,
+          message_type: 'text'
+        })
+        .select()
+        .single();
 
       if (error) throw error;
-      setNewMessage('');
+      
+      // Message will appear via real-time subscription
     } catch (error) {
       console.error('Error sending message:', error);
+      setNewMessage(messageContent); // Restore message on error
       toast({
-        title: "Error",
-        description: "Failed to send message",
+        title: "Error", 
+        description: "Failed to send message. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -145,27 +185,33 @@ const ChatScreen: React.FC = () => {
       <div className="flex-1 overflow-hidden">
         <div className="h-full flex flex-col">
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className={`flex ${
-                  message.sender_id === user?.id ? 'justify-end' : 'justify-start'
-                }`}
-              >
+            {messages.length === 0 ? (
+              <div className="text-center text-muted-foreground py-8">
+                <p>No messages yet. Say hi! 👋</p>
+              </div>
+            ) : (
+              messages.map((message) => (
                 <div
-                  className={`max-w-[70%] rounded-lg p-3 ${
-                    message.sender_id === user?.id
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted text-muted-foreground'
+                  key={message.id}
+                  className={`flex ${
+                    message.sender_id === user?.id ? 'justify-end' : 'justify-start'
                   }`}
                 >
-                  <div className="text-xs opacity-70 mb-1">
-                    {getSenderName(message.sender_id)} • {formatTime(message.created_at)}
+                  <div
+                    className={`max-w-[70%] rounded-lg p-3 ${
+                      message.sender_id === user?.id
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted text-foreground'
+                    }`}
+                  >
+                    <div className="text-xs opacity-70 mb-1">
+                      {getSenderName(message.sender_id)} • {formatTime(message.created_at)}
+                    </div>
+                    <div className="text-sm break-words">{message.content}</div>
                   </div>
-                  <div className="text-sm">{message.content}</div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
             <div ref={messagesEndRef} />
           </div>
 
@@ -179,6 +225,13 @@ const ChatScreen: React.FC = () => {
                   placeholder="Type a message..."
                   disabled={isLoading}
                   className="flex-1"
+                  autoComplete="off"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      sendMessage(e as any);
+                    }
+                  }}
                 />
                 <Button 
                   type="submit" 
