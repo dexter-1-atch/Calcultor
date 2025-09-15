@@ -14,7 +14,7 @@ type AuthContextType = {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const USERS = {
-  serish: { id: 'serish', name: 'Serish', password: 'serish12' },
+  serish: { id: 'serish', name: 'UsSeErRish!', password: 'serish12' },
   jiya: { id: 'jiya', name: 'Jiya', password: 'jiya' }
 };
 
