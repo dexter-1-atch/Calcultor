@@ -34,6 +34,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const logout = () => {
     setUser(null);
+    // Reset to calculator view on logout
+    window.location.reload();
   };
 
   return (
