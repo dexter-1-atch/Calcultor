@@ -6,6 +6,12 @@ interface OnlineStatusProps {
   userId: string;
 }
 
+interface UserStatus {
+  user_id: string;
+  is_online: boolean;
+  last_seen: string;
+}
+
 const OnlineStatus: React.FC<OnlineStatusProps> = ({ userId }) => {
   const [isOnline, setIsOnline] = useState(false);
   const [lastSeen, setLastSeen] = useState<string>('');
@@ -17,17 +23,34 @@ const OnlineStatus: React.FC<OnlineStatusProps> = ({ userId }) => {
     // Update our own online status
     const updateOnlineStatus = async () => {
       if (user.id === userId) {
-        await supabase
+        const { error } = await supabase
           .from('user_status')
           .upsert({
             user_id: userId,
             is_online: true,
             last_seen: new Date().toISOString()
           });
+        
+        if (error) console.error('Error updating status:', error);
+      }
+    };
+
+    // Fetch initial status
+    const fetchStatus = async () => {
+      const { data, error } = await supabase
+        .from('user_status')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+      
+      if (data) {
+        setIsOnline(data.is_online);
+        setLastSeen(data.last_seen);
       }
     };
 
     updateOnlineStatus();
+    fetchStatus();
 
     // Listen for status changes
     const subscription = supabase
@@ -38,9 +61,10 @@ const OnlineStatus: React.FC<OnlineStatusProps> = ({ userId }) => {
         table: 'user_status',
         filter: `user_id=eq.${userId}`
       }, (payload) => {
-        if (payload.new) {
-          setIsOnline(payload.new.is_online);
-          setLastSeen(payload.new.last_seen);
+        const newData = payload.new as UserStatus;
+        if (newData) {
+          setIsOnline(newData.is_online);
+          setLastSeen(newData.last_seen);
         }
       })
       .subscribe();
@@ -72,6 +96,7 @@ const OnlineStatus: React.FC<OnlineStatusProps> = ({ userId }) => {
   if (userId === user?.id) return null;
 
   const formatLastSeen = (lastSeenTime: string) => {
+    if (!lastSeenTime) return '';
     const now = new Date();
     const seen = new Date(lastSeenTime);
     const diffMs = now.getTime() - seen.getTime();
@@ -86,12 +111,12 @@ const OnlineStatus: React.FC<OnlineStatusProps> = ({ userId }) => {
   };
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2 animate-fade-in">
       <div className={`w-2 h-2 rounded-full ${
-        isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-400'
+        isOnline ? 'bg-green-500 animate-pulse shadow-lg shadow-green-500/50' : 'bg-gray-400'
       }`} />
       <span className="text-xs text-muted-foreground">
-        {isOnline ? 'Online' : `Last seen ${formatLastSeen(lastSeen)}`}
+        {isOnline ? 'Online' : lastSeen ? `Last seen ${formatLastSeen(lastSeen)}` : 'Offline'}
       </span>
     </div>
   );

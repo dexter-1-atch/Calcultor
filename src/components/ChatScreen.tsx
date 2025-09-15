@@ -1,27 +1,36 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Send, LogOut } from 'lucide-react';
+import { Send, LogOut, Heart, Trash2, Check, CheckCheck } from 'lucide-react';
+import OnlineStatus from './OnlineStatus';
+import ImageUpload from './ImageUpload';
 
-type Message = {
+interface Message {
   id: string;
   content: string;
   sender_id: string;
   created_at: string;
-};
+  image_url?: string | null;
+  read_by?: any;
+  deleted_at?: string | null;
+  deleted_by?: string | null;
+  message_type?: string;
+  conversation_id: string;
+  updated_at?: string;
+}
 
 const ChatScreen: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const { user, logout } = useAuth();
   const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const conversationId = '00000000-0000-0000-0000-000000000001'; // Fixed UUID for the chat
+  const conversationId = '00000000-0000-0000-0000-000000000001';
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -32,63 +41,64 @@ const ChatScreen: React.FC = () => {
   }, [messages]);
 
   useEffect(() => {
-    if (!user) return;
-
-    // Initialize conversation and load messages
-    initializeChat();
-
-    // Set up real-time subscription
-    const channel = supabase
-      .channel('serish-jiya-chat')
-      .on(
-        'postgres_changes',
-        {
+    if (user) {
+      initializeChat();
+      
+      // Set up real-time subscription
+      const subscription = supabase
+        .channel('messages-channel')
+        .on('postgres_changes', {
           event: 'INSERT',
           schema: 'public',
-          table: 'messages',
-          filter: `conversation_id=eq.${conversationId}`
-        },
-        (payload) => {
+          table: 'messages'
+        }, (payload) => {
           const newMessage = payload.new as Message;
-          // Only add if not already in messages (prevent duplicates)
           setMessages(prev => {
             const exists = prev.find(m => m.id === newMessage.id);
             if (exists) return prev;
             return [...prev, newMessage];
           });
-        }
-      )
-      .subscribe();
+          
+          // Mark message as read by current user if it's not from them
+          if (newMessage.sender_id !== user.id) {
+            markMessageAsRead(newMessage.id);
+          }
+        })
+        .on('postgres_changes', {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'messages'
+        }, (payload) => {
+          const updatedMessage = payload.new as Message;
+          setMessages(prev => prev.map(msg => 
+            msg.id === updatedMessage.id ? updatedMessage : msg
+          ));
+        })
+        .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+      return () => {
+        supabase.removeChannel(subscription);
+      };
+    }
   }, [user]);
 
   const initializeChat = async () => {
     try {
-      // First, ensure conversation exists
-      const { data: existingConv } = await supabase
+      // Ensure conversation exists
+      const { error: conversationError } = await supabase
         .from('conversations')
-        .select('id')
-        .eq('id', conversationId)
-        .single();
+        .upsert({
+          id: conversationId,
+          created_by: user?.id || 'system'
+        });
 
-      if (!existingConv) {
-        // Create the conversation
-        await supabase
-          .from('conversations')
-          .insert({
-            id: conversationId,
-            created_by: user?.id || 'serish'
-          });
+      if (conversationError) {
+        console.error('Conversation error:', conversationError);
       }
 
-      // Load existing messages
-      loadMessages();
+      await loadMessages();
     } catch (error) {
       console.error('Error initializing chat:', error);
-      loadMessages(); // Still try to load messages
     }
   };
 
@@ -98,6 +108,7 @@ const ChatScreen: React.FC = () => {
         .from('messages')
         .select('*')
         .eq('conversation_id', conversationId)
+        .is('deleted_at', null)
         .order('created_at', { ascending: true });
 
       if (error) throw error;
@@ -112,35 +123,55 @@ const ChatScreen: React.FC = () => {
     }
   };
 
+  const uploadImage = async (file: File): Promise<string | null> => {
+    try {
+      // Convert to base64 since storage isn't set up
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target?.result as string);
+        reader.readAsDataURL(file);
+      });
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      return null;
+    }
+  };
+
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || !user) return;
+    if ((!newMessage.trim() && !selectedImage) || !user) return;
 
-    const messageContent = newMessage.trim();
-    setNewMessage(''); // Clear input immediately for better UX
     setIsLoading(true);
-    
     try {
-      const { data, error } = await supabase
+      let imageUrl = null;
+      if (selectedImage) {
+        imageUrl = await uploadImage(selectedImage);
+      }
+
+      const { error } = await supabase
         .from('messages')
         .insert({
-          content: messageContent,
-          sender_id: user.id,
           conversation_id: conversationId,
-          message_type: 'text'
-        })
-        .select()
-        .single();
+          content: newMessage.trim() || '',
+          sender_id: user.id,
+          image_url: imageUrl,
+          message_type: imageUrl ? 'image' : 'text',
+          read_by: { [user.id]: true }
+        });
 
       if (error) throw error;
-      
-      // Message will appear via real-time subscription
+
+      setNewMessage('');
+      setSelectedImage(null);
+      toast({
+        title: "Message sent",
+        description: "Your message has been delivered with love 💕"
+      });
     } catch (error) {
       console.error('Error sending message:', error);
-      setNewMessage(messageContent); // Restore message on error
       toast({
-        title: "Error", 
-        description: "Failed to send message. Please try again.",
+        title: "Failed to send message",
+        description: "Please try again",
         variant: "destructive"
       });
     } finally {
@@ -148,102 +179,225 @@ const ChatScreen: React.FC = () => {
     }
   };
 
-  const getSenderName = (senderId: string) => {
-    return senderId === 'serish' ? 'Serish' : 'Jiya';
+  const markMessageAsRead = async (messageId: string) => {
+    if (!user) return;
+    
+    try {
+      const message = messages.find(m => m.id === messageId);
+      if (message) {
+        const currentReadBy = message.read_by || {};
+        const updatedReadBy = { ...currentReadBy, [user.id]: true };
+        
+        await supabase
+          .from('messages')
+          .update({ read_by: updatedReadBy })
+          .eq('id', messageId);
+      }
+    } catch (error) {
+      console.error('Error marking message as read:', error);
+    }
   };
 
-  const formatTime = (timestamp: string) => {
-    return new Date(timestamp).toLocaleTimeString([], { 
-      hour: '2-digit', 
-      minute: '2-digit' 
+  const deleteMessage = async (messageId: string) => {
+    if (!user) return;
+    
+    try {
+      await supabase
+        .from('messages')
+        .update({ 
+          deleted_at: new Date().toISOString(),
+          deleted_by: user.id 
+        })
+        .eq('id', messageId);
+
+      toast({
+        title: "Message deleted",
+        description: "Message has been removed"
+      });
+    } catch (error) {
+      console.error('Error deleting message:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete message",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const getSenderName = (senderId: string): string => {
+    if (senderId === 'serish') return 'UsSeErRish!';
+    if (senderId === 'jiya') return 'Jiya';
+    return senderId;
+  };
+
+  const formatTime = (timestamp: string): string => {
+    return new Date(timestamp).toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit'
     });
   };
 
+  const getOtherUserId = (): string => {
+    return user?.id === 'serish' ? 'jiya' : 'serish';
+  };
+
+  const isMessageRead = (message: Message): boolean => {
+    const otherUserId = getOtherUserId();
+    return message.read_by?.[otherUserId] === true;
+  };
+
+  const renderReadStatus = (message: Message) => {
+    if (message.sender_id !== user?.id) return null;
+    
+    const isRead = isMessageRead(message);
+    return (
+      <div className="flex items-center gap-1 text-xs opacity-70">
+        {isRead ? (
+          <CheckCheck className="h-3 w-3 text-blue-400" />
+        ) : (
+          <Check className="h-3 w-3" />
+        )}
+      </div>
+    );
+  };
+
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="flex flex-col h-screen bg-gradient-to-br from-pink-50 via-rose-50 to-purple-50 dark:from-purple-900/20 dark:via-pink-900/20 dark:to-rose-900/20">
       {/* Header */}
-      <Card className="rounded-none border-b">
-        <CardHeader className="flex flex-row items-center justify-between py-4">
-          <CardTitle className="text-lg">Private Chat</CardTitle>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-muted-foreground">
-              Logged in as {user?.name}
-            </span>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={logout}
-              className="h-8 w-8 p-0"
-            >
-              <LogOut className="h-4 w-4" />
-            </Button>
+      <div className="love-gradient text-white p-4 shadow-lg">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="animate-heart-beat">
+              <Heart className="h-6 w-6 fill-current" />
+            </div>
+            <div>
+              <h1 className="font-bold text-lg animate-float">
+                {user?.name} 💕
+              </h1>
+              <OnlineStatus userId={getOtherUserId()} />
+            </div>
           </div>
-        </CardHeader>
-      </Card>
+          <Button
+            onClick={logout}
+            variant="ghost" 
+            size="sm"
+            className="text-white hover:bg-white/20 love-glow"
+          >
+            <LogOut className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-hidden">
-        <div className="h-full flex flex-col">
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {messages.length === 0 ? (
-              <div className="text-center text-muted-foreground py-8">
-                <p>No messages yet. Say hi! 👋</p>
-              </div>
-            ) : (
-              messages.map((message) => (
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {messages.length === 0 ? (
+          <div className="text-center text-muted-foreground mt-8 animate-fade-in">
+            <Heart className="h-12 w-12 mx-auto mb-4 text-pink-300 animate-heart-beat" />
+            <p className="text-lg font-medium">Start your love conversation 💕</p>
+            <p className="text-sm">Send your first message to begin chatting!</p>
+          </div>
+        ) : (
+          messages.map((message) => (
+            <div
+              key={message.id}
+              className={`flex animate-slide-in ${
+                message.sender_id === user?.id ? 'justify-end' : 'justify-start'
+              }`}
+            >
+              <div className="group relative max-w-xs md:max-w-md">
                 <div
-                  key={message.id}
-                  className={`flex ${
-                    message.sender_id === user?.id ? 'justify-end' : 'justify-start'
+                  className={`rounded-2xl p-3 shadow-lg transition-all duration-200 hover:shadow-xl ${
+                    message.sender_id === user?.id
+                      ? 'love-gradient text-white ml-auto love-glow'
+                      : 'bg-white border border-pink-200 hover:border-pink-300 dark:bg-gray-800 dark:border-pink-700'
                   }`}
                 >
-                  <div
-                    className={`max-w-[70%] rounded-lg p-3 ${
-                      message.sender_id === user?.id
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted text-foreground'
-                    }`}
-                  >
-                    <div className="text-xs opacity-70 mb-1">
-                      {getSenderName(message.sender_id)} • {formatTime(message.created_at)}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1">
+                      <p className="text-xs font-medium opacity-70 mb-1">
+                        {getSenderName(message.sender_id)}
+                      </p>
+                      
+                      {message.image_url && (
+                        <div className="mb-2">
+                          <img 
+                            src={message.image_url} 
+                            alt="Shared image"
+                            className="rounded-lg max-w-full h-auto border border-pink-200"
+                          />
+                        </div>
+                      )}
+                      
+                      {message.content && (
+                        <p className="text-sm break-words">{message.content}</p>
+                      )}
+                      
+                      <div className="flex items-center justify-between gap-2 mt-2">
+                        <p className="text-xs opacity-60">
+                          {formatTime(message.created_at)}
+                        </p>
+                        {renderReadStatus(message)}
+                      </div>
                     </div>
-                    <div className="text-sm break-words">{message.content}</div>
+                    
+                    {message.sender_id === user?.id && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => deleteMessage(message.id)}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    )}
                   </div>
                 </div>
-              ))
-            )}
-            <div ref={messagesEndRef} />
-          </div>
+              </div>
+            </div>
+          ))
+        )}
+        <div ref={messagesEndRef} />
+      </div>
 
-          {/* Input */}
-          <Card className="rounded-none border-t">
-            <CardContent className="p-4">
-              <form onSubmit={sendMessage} className="flex gap-2">
-                <Input
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  placeholder="Type a message..."
-                  disabled={isLoading}
-                  className="flex-1"
-                  autoComplete="off"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      sendMessage(e as any);
-                    }
-                  }}
+      {/* Input Area */}
+      <div className="p-4 bg-white/80 backdrop-blur-sm border-t border-pink-200 dark:bg-gray-900/80 dark:border-pink-700">
+        <form onSubmit={sendMessage} className="flex items-end gap-3">
+          <div className="flex-1">
+            {selectedImage && (
+              <div className="mb-2">
+                <ImageUpload
+                  onImageSelect={setSelectedImage}
+                  selectedImage={selectedImage}
+                  onRemoveImage={() => setSelectedImage(null)}
                 />
-                <Button 
-                  type="submit" 
-                  disabled={!newMessage.trim() || isLoading}
-                  size="icon"
-                >
-                  <Send className="h-4 w-4" />
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-        </div>
+              </div>
+            )}
+            <div className="flex gap-2">
+              <Input
+                type="text"
+                placeholder="Type your love message... 💕"
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                className="flex-1 border-pink-200 focus:border-pink-400 focus:ring-pink-400 rounded-full bg-white/90 dark:bg-gray-800/90 dark:border-pink-700"
+                disabled={isLoading}
+              />
+              {!selectedImage && (
+                <ImageUpload
+                  onImageSelect={setSelectedImage}
+                  selectedImage={selectedImage}
+                  onRemoveImage={() => setSelectedImage(null)}
+                />
+              )}
+            </div>
+          </div>
+          <Button
+            type="submit"
+            disabled={(!newMessage.trim() && !selectedImage) || isLoading}
+            className="love-gradient rounded-full h-10 w-10 p-0 love-glow hover:scale-105 transition-transform"
+          >
+            <Send className="h-4 w-4" />
+          </Button>
+        </form>
       </div>
     </div>
   );

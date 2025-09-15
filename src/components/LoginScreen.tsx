@@ -36,11 +36,13 @@ const LoginScreen: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-pink-50 via-rose-50 to-purple-50 p-4">
+      <Card className="w-full max-w-md shadow-2xl border-pink-200 love-glow animate-fade-in">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold">Private Chat</CardTitle>
-          <CardDescription>Select your name and enter password</CardDescription>
+          <CardTitle className="text-2xl font-bold love-gradient bg-clip-text text-transparent animate-heart-beat">
+            Private Chat 💕
+          </CardTitle>
+          <CardDescription className="text-pink-600">Select your name and enter password</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-3">
@@ -49,16 +51,16 @@ const LoginScreen: React.FC = () => {
               <Button
                 variant={selectedUser === 'serish' ? 'default' : 'outline'}
                 onClick={() => handleUserSelect('serish')}
-                className="h-12"
+                className="h-12 love-gradient text-white border-pink-300 hover:love-glow"
               >
-                Serish
+                UsSeErRish!
               </Button>
               <Button
                 variant={selectedUser === 'jiya' ? 'default' : 'outline'}
                 onClick={() => handleUserSelect('jiya')}
-                className="h-12"
+                className="h-12 love-gradient text-white border-pink-300 hover:love-glow"
               >
-                Jiya
+                Jiya 💕
               </Button>
             </div>
           </div>
@@ -76,10 +78,10 @@ const LoginScreen: React.FC = () => {
               </div>
               <Button 
                 type="submit" 
-                className="w-full h-12" 
+                className="w-full h-12 love-gradient love-glow hover:scale-105 transition-transform" 
                 disabled={!password || isLoading}
               >
-                {isLoading ? 'Logging in...' : 'Login'}
+                {isLoading ? 'Logging in...' : 'Login 💕'}
               </Button>
             </form>
           )}
