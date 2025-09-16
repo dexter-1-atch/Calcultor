@@ -4,9 +4,10 @@ import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Send, LogOut, Heart, Trash2, Check, CheckCheck } from 'lucide-react';
+import { Send, LogOut, Heart, Trash2, Check, CheckCheck, Sparkles } from 'lucide-react';
 import OnlineStatus from './OnlineStatus';
 import ImageUpload from './ImageUpload';
+import TypingDisplay, { useTypingIndicator } from './TypingIndicator';
 
 interface Message {
   id: string;
@@ -31,6 +32,7 @@ const ChatScreen: React.FC = () => {
   const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const conversationId = '00000000-0000-0000-0000-000000000001';
+  const { typingUsers, startTyping, stopTyping } = useTypingIndicator({ conversationId });
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -44,19 +46,25 @@ const ChatScreen: React.FC = () => {
     if (user) {
       initializeChat();
       
-      // Set up real-time subscription
+      // Set online status when user logs in
+      updateUserOnlineStatus(true);
+      
+      // Set up real-time subscription for messages
       const subscription = supabase
-        .channel('messages-channel')
+        .channel('chat-room')
         .on('postgres_changes', {
           event: 'INSERT',
           schema: 'public',
-          table: 'messages'
+          table: 'messages',
+          filter: `conversation_id=eq.${conversationId}`
         }, (payload) => {
           const newMessage = payload.new as Message;
           setMessages(prev => {
             const exists = prev.find(m => m.id === newMessage.id);
             if (exists) return prev;
-            return [...prev, newMessage];
+            return [...prev, newMessage].sort((a, b) => 
+              new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+            );
           });
           
           // Mark message as read by current user if it's not from them
@@ -67,16 +75,26 @@ const ChatScreen: React.FC = () => {
         .on('postgres_changes', {
           event: 'UPDATE',
           schema: 'public',
-          table: 'messages'
+          table: 'messages',
+          filter: `conversation_id=eq.${conversationId}`
         }, (payload) => {
           const updatedMessage = payload.new as Message;
-          setMessages(prev => prev.map(msg => 
-            msg.id === updatedMessage.id ? updatedMessage : msg
-          ));
+          
+          // Handle soft deletions by filtering out deleted messages
+          setMessages(prev => {
+            if (updatedMessage.deleted_at) {
+              return prev.filter(msg => msg.id !== updatedMessage.id);
+            }
+            return prev.map(msg => 
+              msg.id === updatedMessage.id ? updatedMessage : msg
+            );
+          });
         })
         .subscribe();
 
+      // Cleanup on unmount or logout
       return () => {
+        updateUserOnlineStatus(false);
         supabase.removeChannel(subscription);
       };
     }
@@ -120,6 +138,22 @@ const ChatScreen: React.FC = () => {
         description: "Failed to load messages",
         variant: "destructive"
       });
+    }
+  };
+
+  const updateUserOnlineStatus = async (isOnline: boolean) => {
+    if (!user) return;
+    
+    try {
+      await supabase
+        .from('user_status')
+        .upsert({
+          user_id: user.id,
+          is_online: isOnline,
+          last_seen: new Date().toISOString()
+        });
+    } catch (error) {
+      console.error('Error updating online status:', error);
     }
   };
 
@@ -262,16 +296,26 @@ const ChatScreen: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gradient-to-br from-pink-50 via-rose-50 to-purple-50 dark:from-purple-900/20 dark:via-pink-900/20 dark:to-rose-900/20">
+    <div className="flex flex-col h-screen bg-gradient-to-br from-pink-50 via-rose-50 to-purple-50 dark:from-purple-900/20 dark:via-pink-900/20 dark:to-rose-900/20 relative overflow-hidden">
+      {/* Animated background elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -left-40 w-80 h-80 bg-pink-300/20 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-purple-300/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-rose-300/10 rounded-full blur-2xl animate-pulse" style={{ animationDelay: '2s' }} />
+      </div>
+      
       {/* Header */}
-      <div className="love-gradient text-white p-4 shadow-lg">
+      <div className="love-gradient text-white p-6 shadow-2xl relative backdrop-blur-sm border-b border-white/10">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="animate-heart-beat">
-              <Heart className="h-6 w-6 fill-current" />
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              <div className="animate-heart-beat">
+                <Heart className="h-8 w-8 fill-current drop-shadow-lg" />
+              </div>
+              <Sparkles className="h-4 w-4 absolute -top-1 -right-1 animate-pulse" />
             </div>
             <div>
-              <h1 className="font-bold text-lg animate-float">
+              <h1 className="font-bold text-xl animate-float bg-gradient-to-r from-white to-pink-100 bg-clip-text text-transparent">
                 {user?.name} 💕
               </h1>
               <OnlineStatus userId={getOtherUserId()} />
@@ -281,9 +325,9 @@ const ChatScreen: React.FC = () => {
             onClick={logout}
             variant="ghost" 
             size="sm"
-            className="text-white hover:bg-white/20 love-glow"
+            className="text-white hover:bg-white/20 love-glow rounded-full p-3 backdrop-blur-sm"
           >
-            <LogOut className="h-4 w-4" />
+            <LogOut className="h-5 w-5" />
           </Button>
         </div>
       </div>
@@ -319,11 +363,13 @@ const ChatScreen: React.FC = () => {
                       </p>
                       
                       {message.image_url && (
-                        <div className="mb-2">
+                        <div className="mb-2 max-w-xs">
                           <img 
                             src={message.image_url} 
                             alt="Shared image"
-                            className="rounded-lg max-w-full h-auto border border-pink-200"
+                            className="rounded-xl max-w-full h-auto shadow-md hover:shadow-lg transition-shadow cursor-pointer"
+                            onClick={() => window.open(message.image_url!, '_blank')}
+                            style={{ maxHeight: '200px', objectFit: 'cover' }}
                           />
                         </div>
                       )}
@@ -356,6 +402,7 @@ const ChatScreen: React.FC = () => {
             </div>
           ))
         )}
+        <TypingDisplay typingUsers={typingUsers} />
         <div ref={messagesEndRef} />
       </div>
 
@@ -378,6 +425,8 @@ const ChatScreen: React.FC = () => {
                 placeholder="Type your love message... 💕"
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
+                onFocus={() => startTyping()}
+                onBlur={() => stopTyping()}
                 className="flex-1 border-pink-200 focus:border-pink-400 focus:ring-pink-400 rounded-full bg-white/90 dark:bg-gray-800/90 dark:border-pink-700"
                 disabled={isLoading}
               />
