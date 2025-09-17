@@ -197,10 +197,6 @@ const ChatScreen: React.FC = () => {
 
       setNewMessage('');
       setSelectedImage(null);
-      toast({
-        title: "Message sent",
-        description: "Your message has been delivered with love 💕"
-      });
     } catch (error) {
       console.error('Error sending message:', error);
       toast({
@@ -264,6 +260,10 @@ const ChatScreen: React.FC = () => {
     return senderId;
   };
 
+  const getOtherUserName = (): string => {
+    return user?.id === 'serish' ? 'Jiya' : 'UsSeErRish!';
+  };
+
   const formatTime = (timestamp: string): string => {
     return new Date(timestamp).toLocaleTimeString('en-US', {
       hour: '2-digit',
@@ -316,7 +316,7 @@ const ChatScreen: React.FC = () => {
             </div>
             <div>
               <h1 className="font-bold text-xl animate-float bg-gradient-to-r from-white to-pink-100 bg-clip-text text-transparent">
-                {user?.name} 💕
+                {getOtherUserName()} 💕
               </h1>
               <OnlineStatus userId={getOtherUserId()} />
             </div>
@@ -427,6 +427,12 @@ const ChatScreen: React.FC = () => {
                 onChange={(e) => setNewMessage(e.target.value)}
                 onFocus={() => startTyping()}
                 onBlur={() => stopTyping()}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage(e as any);
+                  }
+                }}
                 className="flex-1 border-pink-200 focus:border-pink-400 focus:ring-pink-400 rounded-full bg-white/90 dark:bg-gray-800/90 dark:border-pink-700"
                 disabled={isLoading}
               />

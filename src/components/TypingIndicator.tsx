@@ -21,7 +21,7 @@ export const useTypingIndicator = ({ conversationId }: UseTypingIndicatorProps) 
       })
       .on('presence', { event: 'join' }, ({ key }) => {
         if (key !== user.id) {
-          setTypingUsers(prev => [...prev, key]);
+          setTypingUsers(prev => prev.includes(key) ? prev : [...prev, key]);
         }
       })
       .on('presence', { event: 'leave' }, ({ key }) => {

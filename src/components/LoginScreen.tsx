@@ -7,17 +7,35 @@ import { useToast } from '@/hooks/use-toast';
 import { Heart, Lock, User, Sparkles, Stars } from 'lucide-react';
 
 const LoginScreen: React.FC = () => {
-  const [username, setUsername] = useState('');
+  const [selectedUser, setSelectedUser] = useState<string>('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
   const { toast } = useToast();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const users = [
+    {
+      id: 'serish',
+      name: 'UsSeErRish!',
+      displayName: 'Serish',
+      avatar: '💖',
+      gradient: 'from-pink-500 to-rose-500'
+    },
+    {
+      id: 'jiya',
+      name: 'Jiya',
+      displayName: 'Jiya',
+      avatar: '💕',
+      gradient: 'from-purple-500 to-pink-500'
+    }
+  ];
+
+  const handleLogin = async () => {
+    if (!selectedUser || !password) return;
+    
     setIsLoading(true);
     
-    const success = await login(username, password);
+    const success = await login(selectedUser, password);
     
     if (success) {
       toast({
@@ -87,47 +105,72 @@ const LoginScreen: React.FC = () => {
         </CardHeader>
         
         <CardContent className="relative z-10 px-8 pb-8">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-3">
-              <label htmlFor="username" className="text-sm font-semibold flex items-center gap-3 text-gray-700">
+          <div className="space-y-6">
+            <div className="space-y-4">
+              <label className="text-sm font-semibold flex items-center gap-3 text-gray-700">
                 <div className="p-2 rounded-full bg-pink-100">
                   <User className="h-4 w-4 text-pink-600" />
                 </div>
                 Choose Your Love Identity
               </label>
-              <Input
-                id="username"
-                type="text"
-                placeholder="serish or jiya - pick your destiny 💖"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                required
-                className="border-2 border-pink-200/60 focus:border-pink-400 focus:ring-pink-400/50 rounded-xl h-12 bg-white/80 backdrop-blur-sm shadow-inner"
-              />
+              
+              <div className="grid grid-cols-2 gap-4">
+                {users.map((user) => (
+                  <div
+                    key={user.id}
+                    onClick={() => setSelectedUser(user.id)}
+                    className={`relative p-6 rounded-2xl border-2 cursor-pointer transition-all duration-300 hover:scale-105 ${
+                      selectedUser === user.id
+                        ? 'border-pink-400 bg-gradient-to-br from-pink-50 to-rose-50 love-glow'
+                        : 'border-pink-200/50 bg-white/80 hover:border-pink-300'
+                    }`}
+                  >
+                    <div className="text-center space-y-3">
+                      <div className={`text-4xl animate-pulse bg-gradient-to-r ${user.gradient} bg-clip-text text-transparent`}>
+                        {user.avatar}
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-lg text-gray-800">{user.displayName}</h3>
+                        <p className="text-sm text-gray-600">{user.name}</p>
+                      </div>
+                    </div>
+                    
+                    {selectedUser === user.id && (
+                      <div className="absolute -top-2 -right-2">
+                        <div className="w-6 h-6 bg-pink-500 rounded-full flex items-center justify-center">
+                          <Heart className="h-3 w-3 text-white fill-current" />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
             
-            <div className="space-y-3">
-              <label htmlFor="password" className="text-sm font-semibold flex items-center gap-3 text-gray-700">
-                <div className="p-2 rounded-full bg-purple-100">
-                  <Lock className="h-4 w-4 text-purple-600" />
-                </div>
-                Secret Love Code
-              </label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Your heart's secret password 🔐"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="border-2 border-pink-200/60 focus:border-pink-400 focus:ring-pink-400/50 rounded-xl h-12 bg-white/80 backdrop-blur-sm shadow-inner"
-              />
-            </div>
+            {selectedUser && (
+              <div className="space-y-3">
+                <label htmlFor="password" className="text-sm font-semibold flex items-center gap-3 text-gray-700">
+                  <div className="p-2 rounded-full bg-purple-100">
+                    <Lock className="h-4 w-4 text-purple-600" />
+                  </div>
+                  Secret Love Code
+                </label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Your heart's secret password 🔐"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
+                  className="border-2 border-pink-200/60 focus:border-pink-400 focus:ring-pink-400/50 rounded-xl h-12 bg-white/80 backdrop-blur-sm shadow-inner"
+                />
+              </div>
+            )}
             
             <Button
-              type="submit"
-              className="w-full love-gradient hover:scale-105 transition-all duration-300 love-glow h-14 text-lg font-bold rounded-xl shadow-xl"
-              disabled={isLoading}
+              onClick={handleLogin}
+              disabled={!selectedUser || !password || isLoading}
+              className="w-full love-gradient hover:scale-105 transition-all duration-300 love-glow h-14 text-lg font-bold rounded-xl shadow-xl disabled:opacity-50 disabled:hover:scale-100"
             >
               {isLoading ? (
                 <div className="flex items-center gap-2">
@@ -142,7 +185,7 @@ const LoginScreen: React.FC = () => {
                 </div>
               )}
             </Button>
-          </form>
+          </div>
           
           <div className="mt-6 text-center">
             <p className="text-xs text-muted-foreground/70">
