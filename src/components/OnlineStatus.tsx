@@ -18,23 +18,6 @@ const OnlineStatus: React.FC<OnlineStatusProps> = ({ userId }) => {
   const { user } = useAuth();
 
   useEffect(() => {
-    if (!user) return;
-
-    // Update our own online status
-    const updateOnlineStatus = async () => {
-      if (user.id === userId) {
-        const { error } = await supabase
-          .from('user_status')
-          .upsert({
-            user_id: userId,
-            is_online: true,
-            last_seen: new Date().toISOString()
-          });
-        
-        if (error) console.error('Error updating status:', error);
-      }
-    };
-
     // Fetch initial status
     const fetchStatus = async () => {
       const { data, error } = await supabase
@@ -46,10 +29,13 @@ const OnlineStatus: React.FC<OnlineStatusProps> = ({ userId }) => {
       if (data) {
         setIsOnline(data.is_online);
         setLastSeen(data.last_seen);
+      } else {
+        // If no status record exists, user is offline
+        setIsOnline(false);
+        setLastSeen('');
       }
     };
 
-    updateOnlineStatus();
     fetchStatus();
 
     // Listen for status changes
@@ -69,29 +55,10 @@ const OnlineStatus: React.FC<OnlineStatusProps> = ({ userId }) => {
       })
       .subscribe();
 
-    // Set offline when tab closes
-    const handleBeforeUnload = () => {
-      if (user.id === userId) {
-        supabase
-          .from('user_status')
-          .update({ 
-            is_online: false,
-            last_seen: new Date().toISOString()
-          })
-          .eq('user_id', userId);
-      }
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-
     return () => {
       subscription.unsubscribe();
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      if (user.id === userId) {
-        handleBeforeUnload();
-      }
     };
-  }, [userId, user]);
+  }, [userId]);
 
   if (userId === user?.id) return null;
 

@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
 type User = {
   id: string;
@@ -32,7 +33,22 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return false;
   };
 
-  const logout = () => {
+  const logout = async () => {
+    if (user) {
+      // Set user as offline before logging out
+      try {
+        await supabase
+          .from('user_status')
+          .upsert({
+            user_id: user.id,
+            is_online: false,
+            last_seen: new Date().toISOString()
+          });
+      } catch (error) {
+        console.error('Error setting offline status:', error);
+      }
+    }
+    
     setUser(null);
     // Reset to calculator view on logout
     window.location.reload();

@@ -92,9 +92,17 @@ const ChatScreen: React.FC = () => {
         })
         .subscribe();
 
+      // Set offline when tab closes or page refreshes
+      const handleBeforeUnload = () => {
+        updateUserOnlineStatus(false);
+      };
+      
+      window.addEventListener('beforeunload', handleBeforeUnload);
+
       // Cleanup on unmount or logout
       return () => {
         updateUserOnlineStatus(false);
+        window.removeEventListener('beforeunload', handleBeforeUnload);
         supabase.removeChannel(subscription);
       };
     }
