@@ -85,6 +85,7 @@ export type Database = {
           image_url: string | null
           message_type: string | null
           read_by: Json | null
+          reply_to: string | null
           sender_id: string
           updated_at: string
         }
@@ -98,6 +99,7 @@ export type Database = {
           image_url?: string | null
           message_type?: string | null
           read_by?: Json | null
+          reply_to?: string | null
           sender_id: string
           updated_at?: string
         }
@@ -111,10 +113,19 @@ export type Database = {
           image_url?: string | null
           message_type?: string | null
           read_by?: Json | null
+          reply_to?: string | null
           sender_id?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "messages_reply_to_fkey"
+            columns: ["reply_to"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {

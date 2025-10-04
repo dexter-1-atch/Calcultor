@@ -4,11 +4,12 @@ import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Send, LogOut, Trash2, Check, CheckCheck, MessageSquare } from 'lucide-react';
+import { Send, LogOut, Trash2, Check, CheckCheck, MessageSquare, Smile, Reply, X } from 'lucide-react';
 import OnlineStatus from './OnlineStatus';
 import ImageUpload from './ImageUpload';
 import TypingDisplay, { useTypingIndicator } from './TypingIndicator';
 import ImageViewer from './ImageViewer';
+import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
 
 interface Message {
   id: string;
@@ -22,6 +23,7 @@ interface Message {
   message_type?: string;
   conversation_id: string;
   updated_at?: string;
+  reply_to?: string | null;
 }
 
 const ChatScreen: React.FC = () => {
@@ -30,6 +32,9 @@ const ChatScreen: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [viewingImage, setViewingImage] = useState<string | null>(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [lastActivityTime, setLastActivityTime] = useState(Date.now());
   const { user, logout } = useAuth();
   const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -109,6 +114,34 @@ const ChatScreen: React.FC = () => {
       };
     }
   }, [user]);
+
+  // Track user activity to update online status
+  useEffect(() => {
+    if (!user) return;
+
+    const updateActivity = () => {
+      setLastActivityTime(Date.now());
+      updateUserOnlineStatus(true);
+    };
+
+    // Update activity on user interactions
+    const events = ['mousedown', 'keydown', 'scroll', 'touchstart'];
+    events.forEach(event => window.addEventListener(event, updateActivity));
+
+    // Check activity every 30 seconds
+    const activityInterval = setInterval(() => {
+      const timeSinceLastActivity = Date.now() - lastActivityTime;
+      // If inactive for more than 2 minutes, set as offline
+      if (timeSinceLastActivity > 120000) {
+        updateUserOnlineStatus(false);
+      }
+    }, 30000);
+
+    return () => {
+      events.forEach(event => window.removeEventListener(event, updateActivity));
+      clearInterval(activityInterval);
+    };
+  }, [user, lastActivityTime]);
 
   const initializeChat = async () => {
     try {
@@ -200,13 +233,16 @@ const ChatScreen: React.FC = () => {
           sender_id: user.id,
           image_url: imageUrl,
           message_type: imageUrl ? 'image' : 'text',
-          read_by: { [user.id]: true }
+          read_by: { [user.id]: true },
+          reply_to: replyingTo?.id || null
         });
 
       if (error) throw error;
 
       setNewMessage('');
       setSelectedImage(null);
+      setReplyingTo(null);
+      setShowEmojiPicker(false);
     } catch (error) {
       console.error('Error sending message:', error);
       toast({
@@ -217,6 +253,10 @@ const ChatScreen: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const onEmojiClick = (emojiData: EmojiClickData) => {
+    setNewMessage(prev => prev + emojiData.emoji);
   };
 
   const markMessageAsRead = async (messageId: string) => {
@@ -360,6 +400,21 @@ const ChatScreen: React.FC = () => {
                         {getSenderName(message.sender_id)}
                       </p>
                       
+                      {/* Show replied message */}
+                      {message.reply_to && (
+                        <div className="mb-2 p-2 bg-background/20 border-l-2 border-foreground/30 rounded text-xs opacity-80">
+                          {(() => {
+                            const repliedMsg = messages.find(m => m.id === message.reply_to);
+                            return repliedMsg ? (
+                              <div>
+                                <p className="font-semibold">{getSenderName(repliedMsg.sender_id)}</p>
+                                <p className="truncate">{repliedMsg.content || '📷 Image'}</p>
+                              </div>
+                            ) : <p>Message deleted</p>;
+                          })()}
+                        </div>
+                      )}
+                      
                       {message.image_url && (
                         <div className="mb-2 max-w-xs">
                           <img 
@@ -384,16 +439,26 @@ const ChatScreen: React.FC = () => {
                       </div>
                     </div>
                     
-                    {message.sender_id === user?.id && (
+                    <div className="flex gap-1">
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() => deleteMessage(message.id)}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0 hover:bg-destructive/10 hover:text-destructive"
+                        onClick={() => setReplyingTo(message)}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0 hover:bg-primary/10"
                       >
-                        <Trash2 className="h-3 w-3" />
+                        <Reply className="h-3 w-3" />
                       </Button>
-                    )}
+                      {message.sender_id === user?.id && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => deleteMessage(message.id)}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0 hover:bg-destructive/10 hover:text-destructive"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -411,8 +476,36 @@ const ChatScreen: React.FC = () => {
       />
 
       {/* Input Area */}
-      <div className="p-4 bg-card border-t max-w-4xl mx-auto w-full">
-        <form onSubmit={sendMessage} className="flex items-end gap-3">
+      <div className="p-4 bg-card border-t max-w-4xl mx-auto w-full relative">
+        {/* Reply Preview */}
+        {replyingTo && (
+          <div className="mb-2 p-2 bg-muted rounded-lg flex items-start justify-between gap-2">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-1">
+                <Reply className="h-3 w-3" />
+                <p className="text-xs font-semibold">Replying to {getSenderName(replyingTo.sender_id)}</p>
+              </div>
+              <p className="text-xs opacity-70 truncate">{replyingTo.content || '📷 Image'}</p>
+            </div>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setReplyingTo(null)}
+              className="h-6 w-6 p-0"
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          </div>
+        )}
+
+        {/* Emoji Picker */}
+        {showEmojiPicker && (
+          <div className="absolute bottom-20 left-4 z-50">
+            <EmojiPicker onEmojiClick={onEmojiClick} />
+          </div>
+        )}
+
+        <form onSubmit={sendMessage} className="flex items-end gap-2">
           <div className="flex-1">
             {selectedImage && (
               <div className="mb-2">
@@ -426,7 +519,7 @@ const ChatScreen: React.FC = () => {
             <div className="flex gap-2">
               <Input
                 type="text"
-                placeholder="Type a message..."
+                placeholder="Type a message... 😊"
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 onFocus={() => startTyping()}
@@ -440,6 +533,15 @@ const ChatScreen: React.FC = () => {
                 className="flex-1"
                 disabled={isLoading}
               />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                className="h-10 w-10 p-0"
+              >
+                <Smile className="h-5 w-5" />
+              </Button>
               {!selectedImage && (
                 <ImageUpload
                   onImageSelect={setSelectedImage}
