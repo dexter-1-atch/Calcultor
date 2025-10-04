@@ -58,7 +58,6 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
           variant="outline"
           size="sm"
           onClick={handleButtonClick}
-          className="love-glow hover:love-gradient border-pink-300"
         >
           <ImageIcon className="h-4 w-4" />
         </Button>

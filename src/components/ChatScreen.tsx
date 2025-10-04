@@ -4,10 +4,11 @@ import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Send, LogOut, Heart, Trash2, Check, CheckCheck, Sparkles } from 'lucide-react';
+import { Send, LogOut, Trash2, Check, CheckCheck, MessageSquare } from 'lucide-react';
 import OnlineStatus from './OnlineStatus';
 import ImageUpload from './ImageUpload';
 import TypingDisplay, { useTypingIndicator } from './TypingIndicator';
+import ImageViewer from './ImageViewer';
 
 interface Message {
   id: string;
@@ -28,6 +29,7 @@ const ChatScreen: React.FC = () => {
   const [newMessage, setNewMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [viewingImage, setViewingImage] = useState<string | null>(null);
   const { user, logout } = useAuth();
   const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -304,27 +306,15 @@ const ChatScreen: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gradient-to-br from-pink-50 via-rose-50 to-purple-50 dark:from-purple-900/20 dark:via-pink-900/20 dark:to-rose-900/20 relative overflow-hidden">
-      {/* Animated background elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -left-40 w-80 h-80 bg-pink-300/20 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-purple-300/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-rose-300/10 rounded-full blur-2xl animate-pulse" style={{ animationDelay: '2s' }} />
-      </div>
-      
+    <div className="flex flex-col h-screen bg-background">
       {/* Header */}
-      <div className="love-gradient text-white p-6 shadow-2xl relative backdrop-blur-sm border-b border-white/10">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="relative">
-              <div className="animate-heart-beat">
-                <Heart className="h-8 w-8 fill-current drop-shadow-lg" />
-              </div>
-              <Sparkles className="h-4 w-4 absolute -top-1 -right-1 animate-pulse" />
-            </div>
+      <div className="bg-primary text-primary-foreground p-4 shadow-md border-b">
+        <div className="flex items-center justify-between max-w-4xl mx-auto">
+          <div className="flex items-center gap-3">
+            <MessageSquare className="h-6 w-6" />
             <div>
-              <h1 className="font-bold text-xl animate-float bg-gradient-to-r from-white to-pink-100 bg-clip-text text-transparent">
-                {getOtherUserName()} 💕
+              <h1 className="font-semibold text-lg">
+                {getOtherUserName()}
               </h1>
               <OnlineStatus userId={getOtherUserId()} />
             </div>
@@ -333,7 +323,7 @@ const ChatScreen: React.FC = () => {
             onClick={logout}
             variant="ghost" 
             size="sm"
-            className="text-white hover:bg-white/20 love-glow rounded-full p-3 backdrop-blur-sm"
+            className="text-primary-foreground hover:bg-primary-foreground/10"
           >
             <LogOut className="h-5 w-5" />
           </Button>
@@ -341,12 +331,12 @@ const ChatScreen: React.FC = () => {
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto p-4 space-y-3 max-w-4xl mx-auto w-full">
         {messages.length === 0 ? (
           <div className="text-center text-muted-foreground mt-8 animate-fade-in">
-            <Heart className="h-12 w-12 mx-auto mb-4 text-pink-300 animate-heart-beat" />
-            <p className="text-lg font-medium">Start your love conversation 💕</p>
-            <p className="text-sm">Send your first message to begin chatting!</p>
+            <MessageSquare className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+            <p className="text-lg font-medium">No messages yet</p>
+            <p className="text-sm">Send your first message to start the conversation</p>
           </div>
         ) : (
           messages.map((message) => (
@@ -358,10 +348,10 @@ const ChatScreen: React.FC = () => {
             >
               <div className="group relative max-w-xs md:max-w-md">
                 <div
-                  className={`rounded-2xl p-3 shadow-lg transition-all duration-200 hover:shadow-xl ${
+                  className={`rounded-lg p-3 shadow-sm transition-all duration-200 ${
                     message.sender_id === user?.id
-                      ? 'love-gradient text-white ml-auto love-glow'
-                      : 'bg-white border border-pink-200 hover:border-pink-300 dark:bg-gray-800 dark:border-pink-700'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted'
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2">
@@ -375,8 +365,8 @@ const ChatScreen: React.FC = () => {
                           <img 
                             src={message.image_url} 
                             alt="Shared image"
-                            className="rounded-xl max-w-full h-auto shadow-md hover:shadow-lg transition-shadow cursor-pointer"
-                            onClick={() => window.open(message.image_url!, '_blank')}
+                            className="rounded-lg max-w-full h-auto cursor-pointer hover:opacity-90 transition-opacity"
+                            onClick={() => setViewingImage(message.image_url!)}
                             style={{ maxHeight: '200px', objectFit: 'cover' }}
                           />
                         </div>
@@ -399,7 +389,7 @@ const ChatScreen: React.FC = () => {
                         size="sm"
                         variant="ghost"
                         onClick={() => deleteMessage(message.id)}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900"
+                        className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0 hover:bg-destructive/10 hover:text-destructive"
                       >
                         <Trash2 className="h-3 w-3" />
                       </Button>
@@ -414,8 +404,14 @@ const ChatScreen: React.FC = () => {
         <div ref={messagesEndRef} />
       </div>
 
+      <ImageViewer 
+        imageUrl={viewingImage} 
+        isOpen={!!viewingImage} 
+        onClose={() => setViewingImage(null)} 
+      />
+
       {/* Input Area */}
-      <div className="p-4 bg-white/80 backdrop-blur-sm border-t border-pink-200 dark:bg-gray-900/80 dark:border-pink-700">
+      <div className="p-4 bg-card border-t max-w-4xl mx-auto w-full">
         <form onSubmit={sendMessage} className="flex items-end gap-3">
           <div className="flex-1">
             {selectedImage && (
@@ -430,7 +426,7 @@ const ChatScreen: React.FC = () => {
             <div className="flex gap-2">
               <Input
                 type="text"
-                placeholder="Type your love message... 💕"
+                placeholder="Type a message..."
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 onFocus={() => startTyping()}
@@ -441,7 +437,7 @@ const ChatScreen: React.FC = () => {
                     sendMessage(e as any);
                   }
                 }}
-                className="flex-1 border-pink-200 focus:border-pink-400 focus:ring-pink-400 rounded-full bg-white/90 dark:bg-gray-800/90 dark:border-pink-700"
+                className="flex-1"
                 disabled={isLoading}
               />
               {!selectedImage && (
@@ -456,7 +452,7 @@ const ChatScreen: React.FC = () => {
           <Button
             type="submit"
             disabled={(!newMessage.trim() && !selectedImage) || isLoading}
-            className="love-gradient rounded-full h-10 w-10 p-0 love-glow hover:scale-105 transition-transform"
+            className="rounded-full h-10 w-10 p-0"
           >
             <Send className="h-4 w-4" />
           </Button>
