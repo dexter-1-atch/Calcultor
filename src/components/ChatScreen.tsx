@@ -365,10 +365,10 @@ const ChatScreen: React.FC = () => {
   return (
     <div className="flex flex-col h-screen bg-background">
       {/* Header */}
-      <div className="bg-primary text-primary-foreground p-4 shadow-md border-b">
+      <div className="bg-primary text-primary-foreground p-4 shadow-md border-b animate-fade-in-down">
         <div className="flex items-center justify-between max-w-4xl mx-auto">
           <div className="flex items-center gap-3">
-            <MessageSquare className="h-6 w-6" />
+            <MessageSquare className="h-6 w-6 animate-bounce-subtle" />
             <div>
               <h1 className="font-semibold text-lg">
                 {getOtherUserName()}
@@ -380,7 +380,7 @@ const ChatScreen: React.FC = () => {
             onClick={logout}
             variant="ghost" 
             size="sm"
-            className="text-primary-foreground hover:bg-primary-foreground/10"
+            className="text-primary-foreground hover:bg-primary-foreground/10 hover-scale"
           >
             <LogOut className="h-5 w-5" />
           </Button>
@@ -390,22 +390,23 @@ const ChatScreen: React.FC = () => {
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3 max-w-4xl mx-auto w-full">
         {messages.length === 0 ? (
-          <div className="text-center text-muted-foreground mt-8 animate-fade-in">
-            <MessageSquare className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+          <div className="text-center text-muted-foreground mt-8 animate-fade-in-up">
+            <MessageSquare className="h-12 w-12 mx-auto mb-4 text-muted-foreground animate-bounce-subtle" />
             <p className="text-lg font-medium">No messages yet</p>
             <p className="text-sm">Send your first message to start the conversation</p>
           </div>
         ) : (
-          messages.map((message) => (
+          messages.map((message, index) => (
             <div
               key={message.id}
-              className={`flex animate-slide-in ${
+              className={`flex message-appear ${
                 message.sender_id === user?.id ? 'justify-end' : 'justify-start'
               }`}
+              style={{ animationDelay: `${index * 0.05}s` }}
             >
               <div className="group relative max-w-xs md:max-w-md">
                 <div
-                  className={`rounded-lg p-3 shadow-sm transition-all duration-200 ${
+                  className={`rounded-lg p-3 shadow-sm smooth-transition hover-lift ${
                     message.sender_id === user?.id
                       ? 'bg-primary text-primary-foreground'
                       : 'bg-muted'
@@ -419,7 +420,7 @@ const ChatScreen: React.FC = () => {
                       
                       {/* Show replied message */}
                       {message.reply_to && (
-                        <div className="mb-2 p-2 bg-background/20 border-l-2 border-foreground/30 rounded text-xs opacity-80">
+                        <div className="mb-2 p-2 bg-background/20 border-l-2 border-foreground/30 rounded text-xs opacity-80 animate-fade-in">
                           {(() => {
                             const repliedMsg = messages.find(m => m.id === message.reply_to);
                             return repliedMsg ? (
@@ -437,7 +438,7 @@ const ChatScreen: React.FC = () => {
                           <img 
                             src={message.image_url} 
                             alt="Shared image"
-                            className="rounded-lg max-w-full h-auto cursor-pointer hover:opacity-90 transition-opacity"
+                            className="rounded-lg max-w-full h-auto cursor-pointer hover-scale smooth-transition hover:shadow-lg"
                             onClick={() => setViewingImage(message.image_url!)}
                             style={{ maxHeight: '200px', objectFit: 'cover' }}
                           />
@@ -461,7 +462,7 @@ const ChatScreen: React.FC = () => {
                         size="sm"
                         variant="ghost"
                         onClick={() => setReplyingTo(message)}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0 hover:bg-primary/10"
+                        className="opacity-0 group-hover:opacity-100 smooth-transition h-6 w-6 p-0 hover:bg-primary/10 hover-scale"
                       >
                         <Reply className="h-3 w-3" />
                       </Button>
@@ -470,7 +471,7 @@ const ChatScreen: React.FC = () => {
                           size="sm"
                           variant="ghost"
                           onClick={() => deleteMessage(message.id)}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0 hover:bg-destructive/10 hover:text-destructive"
+                          className="opacity-0 group-hover:opacity-100 smooth-transition h-6 w-6 p-0 hover:bg-destructive/10 hover:text-destructive hover-scale"
                         >
                           <Trash2 className="h-3 w-3" />
                         </Button>
@@ -496,7 +497,7 @@ const ChatScreen: React.FC = () => {
       <div className="p-4 bg-card border-t max-w-4xl mx-auto w-full relative">
         {/* Reply Preview */}
         {replyingTo && (
-          <div className="mb-2 p-2 bg-muted rounded-lg flex items-start justify-between gap-2">
+          <div className="mb-2 p-2 bg-muted rounded-lg flex items-start justify-between gap-2 animate-fade-in-up">
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-1">
                 <Reply className="h-3 w-3" />
@@ -508,7 +509,7 @@ const ChatScreen: React.FC = () => {
               size="sm"
               variant="ghost"
               onClick={() => setReplyingTo(null)}
-              className="h-6 w-6 p-0"
+              className="h-6 w-6 p-0 hover-scale"
             >
               <X className="h-3 w-3" />
             </Button>
@@ -517,7 +518,7 @@ const ChatScreen: React.FC = () => {
 
         {/* Emoji Picker */}
         {showEmojiPicker && (
-          <div className="absolute bottom-20 left-4 z-50">
+          <div className="absolute bottom-20 left-4 z-50 animate-scale-in">
             <EmojiPicker onEmojiClick={onEmojiClick} />
           </div>
         )}
@@ -525,7 +526,7 @@ const ChatScreen: React.FC = () => {
         <form onSubmit={sendMessage} className="flex items-end gap-2">
           <div className="flex-1">
             {selectedImage && (
-              <div className="mb-2">
+              <div className="mb-2 animate-fade-in">
                 <ImageUpload
                   onImageSelect={setSelectedImage}
                   selectedImage={selectedImage}
@@ -547,7 +548,7 @@ const ChatScreen: React.FC = () => {
                     sendMessage(e as any);
                   }
                 }}
-                className="flex-1"
+                className="flex-1 smooth-transition focus:shadow-lg"
                 disabled={isLoading}
               />
               <Button
@@ -555,7 +556,7 @@ const ChatScreen: React.FC = () => {
                 variant="ghost"
                 size="sm"
                 onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                className="h-10 w-10 p-0"
+                className="h-10 w-10 p-0 hover-scale"
               >
                 <Smile className="h-5 w-5" />
               </Button>
@@ -571,7 +572,7 @@ const ChatScreen: React.FC = () => {
           <Button
             type="submit"
             disabled={(!newMessage.trim() && !selectedImage) || isLoading}
-            className="rounded-full h-10 w-10 p-0"
+            className="rounded-full h-10 w-10 p-0 hover-scale smooth-transition hover:shadow-lg"
           >
             <Send className="h-4 w-4" />
           </Button>

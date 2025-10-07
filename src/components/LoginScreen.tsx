@@ -51,43 +51,44 @@ const LoginScreen: React.FC = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md shadow-lg">
+      <Card className="w-full max-w-md shadow-lg animate-scale-in hover-lift">
         <CardHeader className="text-center space-y-4">
-          <div className="mx-auto w-16 h-16 rounded-full bg-primary flex items-center justify-center">
+          <div className="mx-auto w-16 h-16 rounded-full bg-primary flex items-center justify-center animate-pulse-glow">
             <MessageSquare className="h-8 w-8 text-primary-foreground" />
           </div>
-          <CardTitle className="text-2xl font-bold">
+          <CardTitle className="text-2xl font-bold animate-fade-in">
             Login to Chat
           </CardTitle>
-          <CardDescription className="text-base">
+          <CardDescription className="text-base animate-fade-in-up">
             Choose your profile to continue
           </CardDescription>
         </CardHeader>
         
         <CardContent className="px-6 pb-6">
           <div className="space-y-6">
-            <div className="space-y-4">
+            <div className="space-y-4 animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
               <label className="text-sm font-medium flex items-center gap-2">
                 <User className="h-4 w-4" />
                 Select User
               </label>
               
               <div className="grid grid-cols-2 gap-3">
-                {users.map((user) => (
+                {users.map((user, index) => (
                   <Button
                     key={user.id}
                     onClick={() => setSelectedUser(user.id)}
                     variant={selectedUser === user.id ? 'default' : 'outline'}
-                    className={`h-auto py-6 transition-all ${
+                    className={`h-auto py-6 smooth-transition hover-lift ${
                       selectedUser === user.id
                         ? 'scale-105 shadow-md'
-                        : 'hover:scale-105'
+                        : ''
                     }`}
+                    style={{ animationDelay: `${index * 0.1}s` }}
                   >
                     <div className="flex flex-col items-center gap-2">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center smooth-transition ${
                         selectedUser === user.id
-                          ? 'bg-primary-foreground/20'
+                          ? 'bg-primary-foreground/20 animate-pulse-glow'
                           : 'bg-muted'
                       }`}>
                         <User className="h-5 w-5" />
@@ -103,7 +104,7 @@ const LoginScreen: React.FC = () => {
             </div>
             
             {selectedUser && (
-              <div className="space-y-3">
+              <div className="space-y-3 animate-fade-in-up">
                 <label htmlFor="password" className="text-sm font-medium flex items-center gap-2">
                   <Lock className="h-4 w-4" />
                   Password
@@ -115,7 +116,7 @@ const LoginScreen: React.FC = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
-                  className="h-11"
+                  className="h-11 smooth-transition focus:shadow-lg"
                 />
               </div>
             )}
@@ -123,7 +124,8 @@ const LoginScreen: React.FC = () => {
             <Button
               onClick={handleLogin}
               disabled={!selectedUser || !password || isLoading}
-              className="w-full h-11 font-semibold"
+              className="w-full h-11 font-semibold hover-lift smooth-transition animate-fade-in-up"
+              style={{ animationDelay: '0.2s' }}
             >
               {isLoading ? 'Logging in...' : `Login as ${selectedUser ? users.find(u => u.id === selectedUser)?.displayName : ''}`}
             </Button>
