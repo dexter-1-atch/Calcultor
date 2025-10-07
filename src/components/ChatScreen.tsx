@@ -157,6 +157,20 @@ const ChatScreen: React.FC = () => {
         console.error('Conversation error:', conversationError);
       }
 
+      // Add both users as participants
+      const participants = [
+        { conversation_id: conversationId, user_id: 'serish' },
+        { conversation_id: conversationId, user_id: 'jiya' }
+      ];
+
+      const { error: participantsError } = await supabase
+        .from('conversation_participants')
+        .upsert(participants, { onConflict: 'conversation_id,user_id' });
+
+      if (participantsError) {
+        console.error('Participants error:', participantsError);
+      }
+
       await loadMessages();
     } catch (error) {
       console.error('Error initializing chat:', error);
