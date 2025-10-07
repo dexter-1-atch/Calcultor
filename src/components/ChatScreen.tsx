@@ -157,7 +157,7 @@ const ChatScreen: React.FC = () => {
         console.error('Conversation error:', conversationError);
       }
 
-      // Add both users as participants
+      // Add both users as participants (ignore if already exist)
       const participants = [
         { conversation_id: conversationId, user_id: 'serish' },
         { conversation_id: conversationId, user_id: 'jiya' }
@@ -165,9 +165,12 @@ const ChatScreen: React.FC = () => {
 
       const { error: participantsError } = await supabase
         .from('conversation_participants')
-        .upsert(participants, { onConflict: 'conversation_id,user_id' });
+        .upsert(participants, { 
+          onConflict: 'conversation_id,user_id',
+          ignoreDuplicates: true 
+        });
 
-      if (participantsError) {
+      if (participantsError && participantsError.code !== '23505') {
         console.error('Participants error:', participantsError);
       }
 
