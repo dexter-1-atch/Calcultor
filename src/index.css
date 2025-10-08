@@ -141,4 +141,10 @@ All colors MUST be HSL.
     background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.2) 50%, transparent 100%);
     background-size: 200% 100%;
   }
+  
+  /* Backdrop blur effects */
+  .backdrop-blur-glass {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
 }

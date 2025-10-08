@@ -34,16 +34,17 @@ export const useTypingIndicator = ({ conversationId }: UseTypingIndicatorProps) 
     };
   }, [conversationId, user]);
 
-  const startTyping = () => {
+  const startTyping = async () => {
     if (!user) return;
     const channel = supabase.channel(`typing-${conversationId}`);
-    channel.track({ user_id: user.id, typing: true });
+    await channel.subscribe();
+    await channel.track({ user_id: user.id, typing: true });
   };
 
-  const stopTyping = () => {
+  const stopTyping = async () => {
     if (!user) return;
     const channel = supabase.channel(`typing-${conversationId}`);
-    channel.untrack();
+    await channel.untrack();
   };
 
   return {
@@ -67,13 +68,13 @@ const TypingDisplay: React.FC<TypingDisplayProps> = ({ typingUsers }) => {
   if (typingUsers.length === 0) return null;
 
   return (
-    <div className="flex items-center gap-2 px-4 py-2 animate-fade-in-up">
-      <div className="flex gap-1">
+    <div className="flex items-center gap-3 px-4 py-2 animate-fade-in-up">
+      <div className="flex gap-1 bg-muted rounded-full px-3 py-2">
         <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
         <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
         <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
       </div>
-      <span className="text-sm text-muted-foreground">
+      <span className="text-sm font-medium text-muted-foreground">
         {getSenderName(typingUsers[0])} is typing...
       </span>
     </div>
