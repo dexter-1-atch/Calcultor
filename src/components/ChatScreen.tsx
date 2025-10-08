@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Send, LogOut, Trash2, Check, CheckCheck, MessageSquare, Smile, Reply, X, Edit2, Image as ImageIcon } from 'lucide-react';
+import { Send, LogOut, Trash2, Check, CheckCheck, MessageSquare, Smile, Reply, X, Edit2, Image as ImageIcon, Sparkles, Sticker } from 'lucide-react';
 import OnlineStatus from './OnlineStatus';
 import ImageUpload from './ImageUpload';
 import TypingDisplay, { useTypingIndicator } from './TypingIndicator';
@@ -459,16 +459,17 @@ const ChatScreen: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gradient-to-br from-background via-background to-primary/5">
+    <div className="flex flex-col h-screen bg-gradient-to-br from-background via-primary/5 to-background">
       {/* Header */}
-      <div className="bg-gradient-to-r from-primary via-primary to-primary/80 text-primary-foreground p-4 shadow-2xl border-b backdrop-blur-sm animate-fade-in-down">
-        <div className="flex items-center justify-between max-w-4xl mx-auto">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-white/10 rounded-full backdrop-blur-md">
-              <MessageSquare className="h-6 w-6 animate-bounce-subtle" />
+      <div className="relative bg-gradient-to-r from-primary via-primary/90 to-primary text-primary-foreground p-5 shadow-xl border-b border-white/10 backdrop-blur-xl animate-fade-in-down">
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZGVmcz48cGF0dGVybiBpZD0iZ3JpZCIgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBwYXR0ZXJuVW5pdHM9InVzZXJTcGFjZU9uVXNlIj48cGF0aCBkPSJNIDQwIDAgTCAwIDAgMCA0MCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLW9wYWNpdHk9IjAuMDUiIHN0cm9rZS13aWR0aD0iMSIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNncmlkKSIvPjwvc3ZnPg==')] opacity-30"></div>
+        <div className="flex items-center justify-between max-w-4xl mx-auto relative z-10">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-white/15 rounded-2xl backdrop-blur-lg shadow-lg hover-scale">
+              <MessageSquare className="h-7 w-7 animate-bounce-subtle" />
             </div>
             <div>
-              <h1 className="font-bold text-xl tracking-tight">
+              <h1 className="font-bold text-2xl tracking-tight drop-shadow-sm">
                 {getOtherUserName()}
               </h1>
               <OnlineStatus userId={getOtherUserId()} />
@@ -478,22 +479,23 @@ const ChatScreen: React.FC = () => {
             onClick={logout}
             variant="ghost" 
             size="sm"
-            className="text-primary-foreground hover:bg-white/20 hover-scale backdrop-blur-md rounded-full"
+            className="text-primary-foreground hover:bg-white/20 hover-scale backdrop-blur-md rounded-full px-4 py-2 border border-white/20"
           >
-            <LogOut className="h-5 w-5" />
+            <LogOut className="h-5 w-5 mr-2" />
+            <span className="font-medium">Logout</span>
           </Button>
         </div>
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 max-w-4xl mx-auto w-full">
+      <div className="flex-1 overflow-y-auto p-6 space-y-4 max-w-4xl mx-auto w-full">
         {messages.length === 0 ? (
-          <div className="text-center text-muted-foreground mt-8 animate-fade-in-up">
-            <div className="inline-block p-4 bg-primary/10 rounded-full mb-4">
-              <MessageSquare className="h-12 w-12 mx-auto text-primary animate-bounce-subtle" />
+          <div className="text-center text-muted-foreground mt-16 animate-fade-in-up">
+            <div className="inline-block p-6 bg-gradient-to-br from-primary/10 to-primary/5 rounded-3xl mb-6 shadow-lg">
+              <MessageSquare className="h-16 w-16 mx-auto text-primary animate-bounce-subtle drop-shadow-sm" />
             </div>
-            <p className="text-lg font-semibold">No messages yet</p>
-            <p className="text-sm opacity-70">Send your first message to start the conversation</p>
+            <p className="text-2xl font-bold mb-2">No messages yet</p>
+            <p className="text-base opacity-70">Send your first message to start the conversation</p>
           </div>
         ) : (
           messages.map((message, index) => (
@@ -504,31 +506,34 @@ const ChatScreen: React.FC = () => {
               }`}
               style={{ animationDelay: `${index * 0.05}s` }}
             >
-              <div className="group relative max-w-xs md:max-w-md">
+              <div className="group relative max-w-xs md:max-w-lg">
                 <div
-                  className={`rounded-2xl p-3 shadow-lg smooth-transition hover-lift backdrop-blur-sm ${
+                  className={`rounded-3xl p-4 shadow-xl smooth-transition hover-lift ${
                     message.sender_id === user?.id
-                      ? 'bg-gradient-to-br from-primary to-primary/80 text-primary-foreground'
-                      : 'bg-gradient-to-br from-muted to-muted/50 border border-border/50'
+                      ? 'bg-gradient-to-br from-primary via-primary to-primary/90 text-primary-foreground shadow-primary/20'
+                      : 'bg-gradient-to-br from-card via-card to-muted border-2 border-border/30 shadow-lg'
                   }`}
                 >
-                  <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-start justify-between gap-3">
                     <div className="flex-1">
-                      <p className="text-xs font-semibold opacity-80 mb-1">
+                      <p className="text-xs font-bold opacity-90 mb-2 tracking-wide">
                         {getSenderName(message.sender_id)}
                       </p>
                       
                       {/* Show replied message */}
                       {message.reply_to && (
-                        <div className="mb-2 p-2 bg-background/20 border-l-2 border-foreground/30 rounded text-xs opacity-80 animate-fade-in">
+                        <div className="mb-3 p-3 bg-background/20 border-l-4 border-white/40 rounded-lg text-xs animate-fade-in backdrop-blur-sm">
                           {(() => {
                             const repliedMsg = messages.find(m => m.id === message.reply_to);
                             return repliedMsg ? (
                               <div>
-                                <p className="font-semibold">{getSenderName(repliedMsg.sender_id)}</p>
-                                <p className="truncate">{repliedMsg.content || '📷 Image'}</p>
+                                <p className="font-bold mb-1 flex items-center gap-1">
+                                  <Reply className="h-3 w-3" />
+                                  {getSenderName(repliedMsg.sender_id)}
+                                </p>
+                                <p className="truncate opacity-80">{repliedMsg.content || '📷 Image'}</p>
                               </div>
-                            ) : <p>Message deleted</p>;
+                            ) : <p className="italic opacity-70">Message deleted</p>;
                           })()}
                         </div>
                       )}
@@ -546,39 +551,44 @@ const ChatScreen: React.FC = () => {
                       )}
                       
                       {message.content && (
-                        <p className="text-sm break-words leading-relaxed">{message.content}</p>
+                        <p className="text-base break-words leading-relaxed">{message.content}</p>
                       )}
                       
-                      <div className="flex items-center justify-between gap-2 mt-2">
+                      <div className="flex items-center justify-between gap-3 mt-3">
                         <div className="flex items-center gap-2">
-                          <p className="text-xs opacity-60">
+                          <p className="text-xs font-medium opacity-70">
                             {formatTime(message.created_at)}
                           </p>
                           {message.updated_at && message.updated_at !== message.created_at && (
-                            <span className="text-xs opacity-50 italic">(edited)</span>
+                            <span className="text-xs opacity-60 italic flex items-center gap-1">
+                              <Edit2 className="h-3 w-3" />
+                              edited
+                            </span>
                           )}
                         </div>
                         {renderReadStatus(message)}
                       </div>
                     </div>
                     
-                    <div className="flex gap-1">
+                    <div className="flex gap-1.5">
                       <Button
                         size="sm"
                         variant="ghost"
                         onClick={() => setReplyingTo(message)}
-                        className="opacity-0 group-hover:opacity-100 smooth-transition h-7 w-7 p-0 hover:bg-primary/10 hover-scale rounded-full"
+                        className="opacity-0 group-hover:opacity-100 smooth-transition h-8 w-8 p-0 hover:bg-white/20 hover-scale rounded-full shadow-md backdrop-blur-sm"
+                        title="Reply"
                       >
-                        <Reply className="h-3.5 w-3.5" />
+                        <Reply className="h-4 w-4" />
                       </Button>
                       {message.sender_id === user?.id && message.message_type === 'text' && (
                         <Button
                           size="sm"
                           variant="ghost"
                           onClick={() => startEditingMessage(message)}
-                          className="opacity-0 group-hover:opacity-100 smooth-transition h-7 w-7 p-0 hover:bg-blue-500/10 hover:text-blue-500 hover-scale rounded-full"
+                          className="opacity-0 group-hover:opacity-100 smooth-transition h-8 w-8 p-0 hover:bg-blue-500/20 hover:text-blue-500 hover-scale rounded-full shadow-md backdrop-blur-sm"
+                          title="Edit"
                         >
-                          <Edit2 className="h-3.5 w-3.5" />
+                          <Edit2 className="h-4 w-4" />
                         </Button>
                       )}
                       {message.sender_id === user?.id && (
@@ -586,9 +596,10 @@ const ChatScreen: React.FC = () => {
                           size="sm"
                           variant="ghost"
                           onClick={() => deleteMessage(message.id)}
-                          className="opacity-0 group-hover:opacity-100 smooth-transition h-7 w-7 p-0 hover:bg-destructive/10 hover:text-destructive hover-scale rounded-full"
+                          className="opacity-0 group-hover:opacity-100 smooth-transition h-8 w-8 p-0 hover:bg-destructive/20 hover:text-destructive hover-scale rounded-full shadow-md backdrop-blur-sm"
+                          title="Delete"
                         >
-                          <Trash2 className="h-3.5 w-3.5" />
+                          <Trash2 className="h-4 w-4" />
                         </Button>
                       )}
                     </div>
@@ -609,19 +620,21 @@ const ChatScreen: React.FC = () => {
       />
 
       {/* Input Area */}
-      <div className="p-4 bg-gradient-to-t from-card/95 to-card/80 border-t backdrop-blur-xl max-w-4xl mx-auto w-full relative shadow-2xl">
+      <div className="p-6 bg-gradient-to-t from-card via-card/98 to-card/95 border-t-2 border-border/50 backdrop-blur-2xl max-w-4xl mx-auto w-full relative shadow-2xl">
         {/* Edit Mode */}
         {editingMessage && (
-          <div className="mb-3 p-3 bg-blue-500/10 rounded-xl border border-blue-500/20 flex items-start justify-between gap-2 animate-fade-in-up">
+          <div className="mb-4 p-4 bg-gradient-to-r from-blue-500/10 to-blue-400/10 rounded-2xl border-2 border-blue-500/30 flex items-start justify-between gap-3 animate-fade-in-up shadow-lg">
             <div className="flex-1">
-              <div className="flex items-center gap-2 mb-2">
-                <Edit2 className="h-4 w-4 text-blue-500" />
-                <p className="text-sm font-semibold text-blue-500">Edit Message</p>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="p-2 bg-blue-500/20 rounded-full">
+                  <Edit2 className="h-4 w-4 text-blue-500" />
+                </div>
+                <p className="text-sm font-bold text-blue-600">Edit Message</p>
               </div>
               <Input
                 value={editContent}
                 onChange={(e) => setEditContent(e.target.value)}
-                className="mb-2"
+                className="mb-3 rounded-xl border-2 focus:border-blue-500 h-11"
                 autoFocus
               />
               <div className="flex gap-2">
@@ -629,16 +642,18 @@ const ChatScreen: React.FC = () => {
                   size="sm"
                   onClick={saveEdit}
                   disabled={!editContent.trim() || isLoading}
-                  className="hover-scale"
+                  className="hover-scale rounded-full px-5 font-semibold"
                 >
+                  <Check className="h-4 w-4 mr-2" />
                   Save
                 </Button>
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={cancelEdit}
-                  className="hover-scale"
+                  className="hover-scale rounded-full px-5 font-semibold"
                 >
+                  <X className="h-4 w-4 mr-2" />
                   Cancel
                 </Button>
               </div>
@@ -648,37 +663,44 @@ const ChatScreen: React.FC = () => {
 
         {/* Reply Preview */}
         {replyingTo && !editingMessage && (
-          <div className="mb-3 p-3 bg-primary/10 rounded-xl border border-primary/20 flex items-start justify-between gap-2 animate-fade-in-up">
+          <div className="mb-4 p-4 bg-gradient-to-r from-primary/10 to-primary/5 rounded-2xl border-2 border-primary/30 flex items-start justify-between gap-3 animate-fade-in-up shadow-lg">
             <div className="flex-1">
-              <div className="flex items-center gap-2 mb-1">
-                <Reply className="h-4 w-4 text-primary" />
-                <p className="text-sm font-semibold">Replying to {getSenderName(replyingTo.sender_id)}</p>
+              <div className="flex items-center gap-2 mb-2">
+                <div className="p-2 bg-primary/20 rounded-full">
+                  <Reply className="h-4 w-4 text-primary" />
+                </div>
+                <p className="text-sm font-bold">Replying to {getSenderName(replyingTo.sender_id)}</p>
               </div>
-              <p className="text-xs opacity-70 truncate">{replyingTo.content || '📷 Image'}</p>
+              <p className="text-sm opacity-80 truncate pl-2 border-l-2 border-primary/40">{replyingTo.content || '📷 Image'}</p>
             </div>
             <Button
               size="sm"
               variant="ghost"
               onClick={() => setReplyingTo(null)}
-              className="h-7 w-7 p-0 hover-scale rounded-full"
+              className="h-8 w-8 p-0 hover-scale rounded-full hover:bg-destructive/10"
             >
-              <X className="h-4 w-4" />
+              <X className="h-5 w-5" />
             </Button>
           </div>
         )}
 
         {/* GIF Picker */}
         {showGifPicker && !editingMessage && (
-          <div className="absolute bottom-20 left-4 right-4 z-50 animate-scale-in bg-card rounded-xl border shadow-2xl p-4 max-h-96 overflow-y-auto">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold">Send a GIF</h3>
+          <div className="absolute bottom-24 left-4 right-4 z-50 animate-scale-in bg-gradient-to-br from-card to-card/95 rounded-2xl border-2 border-primary/20 shadow-2xl p-5 max-h-96 overflow-y-auto backdrop-blur-xl">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-gradient-to-br from-primary/20 to-primary/10 rounded-xl">
+                  <Sparkles className="h-5 w-5 text-primary" />
+                </div>
+                <h3 className="font-bold text-lg">Send a GIF</h3>
+              </div>
               <Button
                 size="sm"
                 variant="ghost"
                 onClick={() => setShowGifPicker(false)}
-                className="h-7 w-7 p-0 rounded-full"
+                className="h-9 w-9 p-0 rounded-full hover:bg-destructive/10 hover-scale"
               >
-                <X className="h-4 w-4" />
+                <X className="h-5 w-5" />
               </Button>
             </div>
             <Grid width={400} columns={2} fetchGifs={fetchGifs} key="gifs" onGifClick={onGifClick} />
@@ -687,16 +709,21 @@ const ChatScreen: React.FC = () => {
 
         {/* Sticker Picker */}
         {showStickerPicker && !editingMessage && (
-          <div className="absolute bottom-20 left-4 right-4 z-50 animate-scale-in bg-card rounded-xl border shadow-2xl p-4 max-h-96 overflow-y-auto">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold">Send a Sticker</h3>
+          <div className="absolute bottom-24 left-4 right-4 z-50 animate-scale-in bg-gradient-to-br from-card to-card/95 rounded-2xl border-2 border-primary/20 shadow-2xl p-5 max-h-96 overflow-y-auto backdrop-blur-xl">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-gradient-to-br from-primary/20 to-primary/10 rounded-xl">
+                  <Sticker className="h-5 w-5 text-primary" />
+                </div>
+                <h3 className="font-bold text-lg">Send a Sticker</h3>
+              </div>
               <Button
                 size="sm"
                 variant="ghost"
                 onClick={() => setShowStickerPicker(false)}
-                className="h-7 w-7 p-0 rounded-full"
+                className="h-9 w-9 p-0 rounded-full hover:bg-destructive/10 hover-scale"
               >
-                <X className="h-4 w-4" />
+                <X className="h-5 w-5" />
               </Button>
             </div>
             <Grid width={400} columns={2} fetchGifs={fetchStickers} key="stickers" onGifClick={onGifClick} />
@@ -705,16 +732,16 @@ const ChatScreen: React.FC = () => {
 
         {/* Emoji Picker */}
         {showEmojiPicker && (
-          <div className="absolute bottom-20 left-4 z-50 animate-scale-in shadow-2xl">
+          <div className="absolute bottom-24 left-4 z-50 animate-scale-in shadow-2xl rounded-2xl overflow-hidden border-2 border-primary/20">
             <EmojiPicker onEmojiClick={onEmojiClick} />
           </div>
         )}
 
         {!editingMessage && (
-          <form onSubmit={sendMessage} className="flex items-end gap-2">
+          <form onSubmit={sendMessage} className="flex items-end gap-3">
             <div className="flex-1">
               {selectedImage && (
-                <div className="mb-2 animate-fade-in">
+                <div className="mb-3 animate-fade-in">
                   <ImageUpload
                     onImageSelect={setSelectedImage}
                     selectedImage={selectedImage}
@@ -722,7 +749,7 @@ const ChatScreen: React.FC = () => {
                   />
                 </div>
               )}
-              <div className="flex gap-2">
+              <div className="flex gap-2 bg-muted/30 p-2 rounded-3xl border-2 border-border/50">
                 <Input
                   type="text"
                   placeholder="Type a message... 💬"
@@ -736,65 +763,71 @@ const ChatScreen: React.FC = () => {
                       sendMessage(e as any);
                     }
                   }}
-                  className="flex-1 smooth-transition focus:shadow-xl focus:ring-2 focus:ring-primary/50 rounded-full px-4"
+                  className="flex-1 smooth-transition focus:shadow-xl focus:ring-2 focus:ring-primary/50 rounded-full px-6 h-12 text-base border-0 bg-transparent focus-visible:ring-offset-0"
                   disabled={isLoading}
                 />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setShowEmojiPicker(!showEmojiPicker);
-                    setShowGifPicker(false);
-                    setShowStickerPicker(false);
-                  }}
-                  className="h-11 w-11 p-0 hover-scale rounded-full hover:bg-primary/10"
-                >
-                  <Smile className="h-5 w-5" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setShowGifPicker(!showGifPicker);
-                    setShowEmojiPicker(false);
-                    setShowStickerPicker(false);
-                  }}
-                  className="h-11 w-11 p-0 hover-scale rounded-full hover:bg-primary/10"
-                  title="Send GIF"
-                >
-                  <span className="text-lg font-bold">GIF</span>
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setShowStickerPicker(!showStickerPicker);
-                    setShowEmojiPicker(false);
-                    setShowGifPicker(false);
-                  }}
-                  className="h-11 w-11 p-0 hover-scale rounded-full hover:bg-primary/10"
-                  title="Send Sticker"
-                >
-                  <ImageIcon className="h-5 w-5" />
-                </Button>
-                {!selectedImage && (
-                  <ImageUpload
-                    onImageSelect={setSelectedImage}
-                    selectedImage={selectedImage}
-                    onRemoveImage={() => setSelectedImage(null)}
-                  />
-                )}
+                <div className="flex gap-1">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setShowEmojiPicker(!showEmojiPicker);
+                      setShowGifPicker(false);
+                      setShowStickerPicker(false);
+                    }}
+                    className={`h-12 w-12 p-0 hover-scale rounded-full transition-all ${showEmojiPicker ? 'bg-primary/20 text-primary' : 'hover:bg-primary/10'}`}
+                    title="Emoji"
+                  >
+                    <Smile className="h-6 w-6" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setShowGifPicker(!showGifPicker);
+                      setShowEmojiPicker(false);
+                      setShowStickerPicker(false);
+                    }}
+                    className={`h-12 px-3 hover-scale rounded-full transition-all ${showGifPicker ? 'bg-primary/20 text-primary' : 'hover:bg-primary/10'}`}
+                    title="GIF"
+                  >
+                    <div className="flex items-center gap-1">
+                      <Sparkles className="h-5 w-5" />
+                      <span className="text-sm font-bold">GIF</span>
+                    </div>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setShowStickerPicker(!showStickerPicker);
+                      setShowEmojiPicker(false);
+                      setShowGifPicker(false);
+                    }}
+                    className={`h-12 w-12 p-0 hover-scale rounded-full transition-all ${showStickerPicker ? 'bg-primary/20 text-primary' : 'hover:bg-primary/10'}`}
+                    title="Sticker"
+                  >
+                    <Sticker className="h-6 w-6" />
+                  </Button>
+                  {!selectedImage && (
+                    <ImageUpload
+                      onImageSelect={setSelectedImage}
+                      selectedImage={selectedImage}
+                      onRemoveImage={() => setSelectedImage(null)}
+                    />
+                  )}
+                </div>
               </div>
             </div>
             <Button
               type="submit"
               disabled={(!newMessage.trim() && !selectedImage) || isLoading}
-              className="rounded-full h-11 w-11 p-0 hover-scale smooth-transition hover:shadow-xl bg-gradient-to-br from-primary to-primary/80"
+              className="rounded-full h-14 w-14 p-0 hover-scale smooth-transition hover:shadow-2xl bg-gradient-to-br from-primary via-primary to-primary/90 shadow-lg shadow-primary/30 disabled:opacity-50"
             >
-              <Send className="h-5 w-5" />
+              <Send className="h-6 w-6" />
             </Button>
           </form>
         )}
