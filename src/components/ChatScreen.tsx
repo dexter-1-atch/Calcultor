@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Send, LogOut, Trash2, Check, CheckCheck, MessageSquare, Smile, Reply, X, Edit2, Image as ImageIcon, Sparkles, Sticker } from 'lucide-react';
+import { Send, LogOut, Trash2, Check, CheckCheck, MessageSquare, Smile, Reply, X, Edit2, Image as ImageIcon, Sparkles, Sticker, Heart, ThumbsUp, Laugh } from 'lucide-react';
 import OnlineStatus from './OnlineStatus';
 import ImageUpload from './ImageUpload';
 import TypingDisplay, { useTypingIndicator } from './TypingIndicator';
@@ -26,6 +26,7 @@ interface Message {
   conversation_id: string;
   updated_at?: string;
   reply_to?: string | null;
+  reactions?: Record<string, string[]>; // emoji -> array of user IDs
 }
 
 const gf = new GiphyFetch('sXpGFDGZs0Dv1mmNFvYaGUvYwKX0PWIh');
@@ -43,6 +44,7 @@ const ChatScreen: React.FC = () => {
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
   const [editContent, setEditContent] = useState('');
   const [lastActivityTime, setLastActivityTime] = useState(Date.now());
+  const [showReactions, setShowReactions] = useState<string | null>(null);
   const { user, logout } = useAuth();
   const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -443,6 +445,42 @@ const ChatScreen: React.FC = () => {
     return message.read_by?.[otherUserId] === true;
   };
 
+  const addReaction = async (messageId: string, emoji: string) => {
+    if (!user) return;
+    
+    try {
+      const message = messages.find(m => m.id === messageId);
+      if (!message) return;
+      
+      const currentReactions = message.reactions || {};
+      const emojiReactions = currentReactions[emoji] || [];
+      
+      // Toggle reaction
+      const updatedReactions = emojiReactions.includes(user.id)
+        ? emojiReactions.filter(id => id !== user.id)
+        : [...emojiReactions, user.id];
+      
+      const newReactions = {
+        ...currentReactions,
+        [emoji]: updatedReactions
+      };
+      
+      // Remove empty arrays
+      Object.keys(newReactions).forEach(key => {
+        if (newReactions[key].length === 0) delete newReactions[key];
+      });
+      
+      await supabase
+        .from('messages')
+        .update({ reactions: newReactions })
+        .eq('id', messageId);
+        
+      setShowReactions(null);
+    } catch (error) {
+      console.error('Error adding reaction:', error);
+    }
+  };
+
   const renderReadStatus = (message: Message) => {
     if (message.sender_id !== user?.id) return null;
     
@@ -450,7 +488,7 @@ const ChatScreen: React.FC = () => {
     return (
       <div className="flex items-center gap-1 text-xs">
         {isRead ? (
-          <CheckCheck className="h-4 w-4 text-blue-400 animate-scale-in" />
+          <CheckCheck className="h-4 w-4 text-accent animate-scale-in" />
         ) : (
           <Check className="h-4 w-4 opacity-60" />
         )}
@@ -459,17 +497,16 @@ const ChatScreen: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gradient-to-br from-background via-primary/5 to-background">
-      {/* Header */}
-      <div className="relative bg-gradient-to-r from-primary via-primary/90 to-primary text-primary-foreground p-5 shadow-xl border-b border-white/10 backdrop-blur-xl animate-fade-in-down">
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZGVmcz48cGF0dGVybiBpZD0iZ3JpZCIgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBwYXR0ZXJuVW5pdHM9InVzZXJTcGFjZU9uVXNlIj48cGF0aCBkPSJNIDQwIDAgTCAwIDAgMCA0MCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLW9wYWNpdHk9IjAuMDUiIHN0cm9rZS13aWR0aD0iMSIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNncmlkKSIvPjwvc3ZnPg==')] opacity-30"></div>
-        <div className="flex items-center justify-between max-w-4xl mx-auto relative z-10">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-white/15 rounded-2xl backdrop-blur-lg shadow-lg hover-scale">
-              <MessageSquare className="h-7 w-7 animate-bounce-subtle" />
+    <div className="flex flex-col h-screen bg-gradient-to-br from-[hsl(291,64%,42%)] via-[hsl(340,82%,52%)] to-[hsl(25,95%,53%)]">
+      {/* Header - Mobile optimized */}
+      <div className="relative bg-gradient-to-r from-primary via-accent to-[hsl(var(--primary-orange))] text-primary-foreground p-4 md:p-5 shadow-2xl backdrop-blur-xl">
+        <div className="flex items-center justify-between w-full relative z-10">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 md:p-3 bg-white/20 rounded-2xl backdrop-blur-lg shadow-xl">
+              <MessageSquare className="h-6 w-6 md:h-7 md:w-7" />
             </div>
             <div>
-              <h1 className="font-bold text-2xl tracking-tight drop-shadow-sm">
+              <h1 className="font-bold text-xl md:text-2xl tracking-tight drop-shadow-lg">
                 {getOtherUserName()}
               </h1>
               <OnlineStatus userId={getOtherUserId()} />
@@ -479,23 +516,22 @@ const ChatScreen: React.FC = () => {
             onClick={logout}
             variant="ghost" 
             size="sm"
-            className="text-primary-foreground hover:bg-white/20 hover-scale backdrop-blur-md rounded-full px-4 py-2 border border-white/20"
+            className="text-primary-foreground hover:bg-white/20 backdrop-blur-md rounded-full px-3 py-2 border border-white/30 shadow-lg"
           >
-            <LogOut className="h-5 w-5 mr-2" />
-            <span className="font-medium">Logout</span>
+            <LogOut className="h-5 w-5" />
           </Button>
         </div>
       </div>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-4 max-w-4xl mx-auto w-full">
+      {/* Messages - Mobile optimized */}
+      <div className="flex-1 overflow-y-auto p-3 md:p-6 space-y-3 w-full bg-gradient-to-b from-white/95 to-white/90 dark:from-black/40 dark:to-black/60">
         {messages.length === 0 ? (
-          <div className="text-center text-muted-foreground mt-16 animate-fade-in-up">
-            <div className="inline-block p-6 bg-gradient-to-br from-primary/10 to-primary/5 rounded-3xl mb-6 shadow-lg">
-              <MessageSquare className="h-16 w-16 mx-auto text-primary animate-bounce-subtle drop-shadow-sm" />
+          <div className="text-center text-white mt-16 animate-fade-in-up">
+            <div className="inline-block p-6 bg-white/20 backdrop-blur-xl rounded-3xl mb-6 shadow-2xl">
+              <MessageSquare className="h-16 w-16 mx-auto text-white drop-shadow-lg" />
             </div>
-            <p className="text-2xl font-bold mb-2">No messages yet</p>
-            <p className="text-base opacity-70">Send your first message to start the conversation</p>
+            <p className="text-2xl font-bold mb-2 text-white drop-shadow-lg">No messages yet</p>
+            <p className="text-base text-white/80 drop-shadow-md">Send your first message to start the conversation</p>
           </div>
         ) : (
           messages.map((message, index) => (
@@ -506,23 +542,23 @@ const ChatScreen: React.FC = () => {
               }`}
               style={{ animationDelay: `${index * 0.05}s` }}
             >
-              <div className="group relative max-w-xs md:max-w-lg">
+              <div className="group relative max-w-[85%] md:max-w-lg">
                 <div
-                  className={`rounded-3xl p-4 shadow-xl smooth-transition hover-lift ${
+                  className={`rounded-[24px] p-4 shadow-2xl smooth-transition ${
                     message.sender_id === user?.id
-                      ? 'bg-gradient-to-br from-primary via-primary to-primary/90 text-primary-foreground shadow-primary/20'
-                      : 'bg-gradient-to-br from-card via-card to-muted border-2 border-border/30 shadow-lg'
+                      ? 'bg-gradient-to-br from-primary via-accent to-[hsl(var(--primary-pink))] text-white'
+                      : 'bg-white dark:bg-card border border-border/50 text-foreground'
                   }`}
                 >
-                  <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start justify-between gap-2">
                     <div className="flex-1">
-                      <p className="text-xs font-bold opacity-90 mb-2 tracking-wide">
+                      <p className="text-xs font-bold opacity-80 mb-2">
                         {getSenderName(message.sender_id)}
                       </p>
                       
                       {/* Show replied message */}
                       {message.reply_to && (
-                        <div className="mb-3 p-3 bg-background/20 border-l-4 border-white/40 rounded-lg text-xs animate-fade-in backdrop-blur-sm">
+                        <div className="mb-2 p-2 bg-black/10 dark:bg-white/10 border-l-4 border-current rounded-lg text-xs">
                           {(() => {
                             const repliedMsg = messages.find(m => m.id === message.reply_to);
                             return repliedMsg ? (
@@ -539,11 +575,11 @@ const ChatScreen: React.FC = () => {
                       )}
                       
                       {message.image_url && (
-                        <div className="mb-2 max-w-xs">
+                        <div className="mb-2">
                           <img 
                             src={message.image_url} 
                             alt={message.message_type === 'gif' ? 'GIF' : 'Shared image'}
-                            className="rounded-xl max-w-full h-auto cursor-pointer hover-scale smooth-transition hover:shadow-2xl border border-white/10"
+                            className="rounded-2xl max-w-full h-auto cursor-pointer hover-scale smooth-transition shadow-lg"
                             onClick={() => setViewingImage(message.image_url!)}
                             style={{ maxHeight: message.message_type === 'gif' ? '250px' : '200px', objectFit: 'cover' }}
                           />
@@ -551,59 +587,95 @@ const ChatScreen: React.FC = () => {
                       )}
                       
                       {message.content && (
-                        <p className="text-base break-words leading-relaxed">{message.content}</p>
+                        <p className="text-[15px] break-words leading-relaxed">{message.content}</p>
                       )}
                       
-                      <div className="flex items-center justify-between gap-3 mt-3">
-                        <div className="flex items-center gap-2">
-                          <p className="text-xs font-medium opacity-70">
-                            {formatTime(message.created_at)}
-                          </p>
-                          {message.updated_at && message.updated_at !== message.created_at && (
-                            <span className="text-xs opacity-60 italic flex items-center gap-1">
-                              <Edit2 className="h-3 w-3" />
-                              edited
-                            </span>
-                          )}
+                      {/* Reactions Display */}
+                      {message.reactions && Object.keys(message.reactions).length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                          {Object.entries(message.reactions).map(([emoji, users]) => (
+                            users.length > 0 && (
+                              <button
+                                key={emoji}
+                                onClick={() => addReaction(message.id, emoji)}
+                                className="px-2 py-1 bg-white/20 dark:bg-black/20 backdrop-blur-sm rounded-full text-xs font-semibold flex items-center gap-1 hover-scale"
+                              >
+                                <span>{emoji}</span>
+                                <span className="opacity-70">{users.length}</span>
+                              </button>
+                            )
+                          ))}
                         </div>
+                      )}
+                      
+                      <div className="flex items-center justify-between gap-2 mt-2">
+                        <p className="text-[11px] font-medium opacity-60">
+                          {formatTime(message.created_at)}
+                          {message.updated_at && message.updated_at !== message.created_at && (
+                            <span className="ml-1 italic">(edited)</span>
+                          )}
+                        </p>
                         {renderReadStatus(message)}
                       </div>
                     </div>
-                    
-                    <div className="flex gap-1.5">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setReplyingTo(message)}
-                        className="opacity-0 group-hover:opacity-100 smooth-transition h-8 w-8 p-0 hover:bg-white/20 hover-scale rounded-full shadow-md backdrop-blur-sm"
-                        title="Reply"
-                      >
-                        <Reply className="h-4 w-4" />
-                      </Button>
-                      {message.sender_id === user?.id && message.message_type === 'text' && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => startEditingMessage(message)}
-                          className="opacity-0 group-hover:opacity-100 smooth-transition h-8 w-8 p-0 hover:bg-blue-500/20 hover:text-blue-500 hover-scale rounded-full shadow-md backdrop-blur-sm"
-                          title="Edit"
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-                      )}
-                      {message.sender_id === user?.id && (
+                  </div>
+                  
+                  {/* Quick Actions - Mobile friendly */}
+                  <div className="flex gap-1 mt-2 pt-2 border-t border-current/10">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setShowReactions(showReactions === message.id ? null : message.id)}
+                      className="h-7 px-2 text-xs hover-scale rounded-full"
+                    >
+                      ❤️
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setReplyingTo(message)}
+                      className="h-7 px-2 text-xs hover-scale rounded-full"
+                    >
+                      <Reply className="h-3.5 w-3.5" />
+                    </Button>
+                    {message.sender_id === user?.id && (
+                      <>
+                        {message.message_type === 'text' && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => startEditingMessage(message)}
+                            className="h-7 px-2 text-xs hover-scale rounded-full"
+                          >
+                            <Edit2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
                         <Button
                           size="sm"
                           variant="ghost"
                           onClick={() => deleteMessage(message.id)}
-                          className="opacity-0 group-hover:opacity-100 smooth-transition h-8 w-8 p-0 hover:bg-destructive/20 hover:text-destructive hover-scale rounded-full shadow-md backdrop-blur-sm"
-                          title="Delete"
+                          className="h-7 px-2 text-xs hover-scale rounded-full text-destructive"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-3.5 w-3.5" />
                         </Button>
-                      )}
-                    </div>
+                      </>
+                    )}
                   </div>
+                  
+                  {/* Reaction Picker */}
+                  {showReactions === message.id && (
+                    <div className="flex gap-2 mt-2 p-2 bg-white/30 dark:bg-black/30 backdrop-blur-xl rounded-2xl animate-scale-in">
+                      {['❤️', '👍', '😂', '😮', '😢', '🔥'].map(emoji => (
+                        <button
+                          key={emoji}
+                          onClick={() => addReaction(message.id, emoji)}
+                          className="text-2xl hover-scale transition-transform"
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -619,8 +691,8 @@ const ChatScreen: React.FC = () => {
         onClose={() => setViewingImage(null)} 
       />
 
-      {/* Input Area */}
-      <div className="p-6 bg-gradient-to-t from-card via-card/98 to-card/95 border-t-2 border-border/50 backdrop-blur-2xl max-w-4xl mx-auto w-full relative shadow-2xl">
+      {/* Input Area - Mobile optimized, bigger */}
+      <div className="p-4 md:p-6 bg-white/95 dark:bg-card/95 backdrop-blur-2xl w-full relative shadow-2xl border-t border-border/30">
         {/* Edit Mode */}
         {editingMessage && (
           <div className="mb-4 p-4 bg-gradient-to-r from-blue-500/10 to-blue-400/10 rounded-2xl border-2 border-blue-500/30 flex items-start justify-between gap-3 animate-fade-in-up shadow-lg">
@@ -684,64 +756,60 @@ const ChatScreen: React.FC = () => {
           </div>
         )}
 
-        {/* GIF Picker */}
+        {/* GIF Picker - Mobile optimized */}
         {showGifPicker && !editingMessage && (
-          <div className="absolute bottom-24 left-4 right-4 z-50 animate-scale-in bg-gradient-to-br from-card to-card/95 rounded-2xl border-2 border-primary/20 shadow-2xl p-5 max-h-96 overflow-y-auto backdrop-blur-xl">
+          <div className="absolute bottom-20 md:bottom-24 left-2 right-2 md:left-4 md:right-4 z-50 animate-scale-in bg-white dark:bg-card rounded-3xl shadow-2xl p-4 max-h-[60vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <div className="p-2 bg-gradient-to-br from-primary/20 to-primary/10 rounded-xl">
-                  <Sparkles className="h-5 w-5 text-primary" />
-                </div>
-                <h3 className="font-bold text-lg">Send a GIF</h3>
+                <Sparkles className="h-5 w-5 text-primary" />
+                <h3 className="font-bold text-base">Send a GIF</h3>
               </div>
               <Button
                 size="sm"
                 variant="ghost"
                 onClick={() => setShowGifPicker(false)}
-                className="h-9 w-9 p-0 rounded-full hover:bg-destructive/10 hover-scale"
+                className="h-8 w-8 p-0 rounded-full hover-scale"
               >
                 <X className="h-5 w-5" />
               </Button>
             </div>
-            <Grid width={400} columns={2} fetchGifs={fetchGifs} key="gifs" onGifClick={onGifClick} />
+            <Grid width={window.innerWidth - 40} columns={2} fetchGifs={fetchGifs} key="gifs" onGifClick={onGifClick} />
           </div>
         )}
 
-        {/* Sticker Picker */}
+        {/* Sticker Picker - Mobile optimized */}
         {showStickerPicker && !editingMessage && (
-          <div className="absolute bottom-24 left-4 right-4 z-50 animate-scale-in bg-gradient-to-br from-card to-card/95 rounded-2xl border-2 border-primary/20 shadow-2xl p-5 max-h-96 overflow-y-auto backdrop-blur-xl">
+          <div className="absolute bottom-20 md:bottom-24 left-2 right-2 md:left-4 md:right-4 z-50 animate-scale-in bg-white dark:bg-card rounded-3xl shadow-2xl p-4 max-h-[60vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <div className="p-2 bg-gradient-to-br from-primary/20 to-primary/10 rounded-xl">
-                  <Sticker className="h-5 w-5 text-primary" />
-                </div>
-                <h3 className="font-bold text-lg">Send a Sticker</h3>
+                <Sticker className="h-5 w-5 text-primary" />
+                <h3 className="font-bold text-base">Send a Sticker</h3>
               </div>
               <Button
                 size="sm"
                 variant="ghost"
                 onClick={() => setShowStickerPicker(false)}
-                className="h-9 w-9 p-0 rounded-full hover:bg-destructive/10 hover-scale"
+                className="h-8 w-8 p-0 rounded-full hover-scale"
               >
                 <X className="h-5 w-5" />
               </Button>
             </div>
-            <Grid width={400} columns={2} fetchGifs={fetchStickers} key="stickers" onGifClick={onGifClick} />
+            <Grid width={window.innerWidth - 40} columns={2} fetchGifs={fetchStickers} key="stickers" onGifClick={onGifClick} />
           </div>
         )}
 
-        {/* Emoji Picker */}
+        {/* Emoji Picker - Mobile optimized */}
         {showEmojiPicker && (
-          <div className="absolute bottom-24 left-4 z-50 animate-scale-in shadow-2xl rounded-2xl overflow-hidden border-2 border-primary/20">
-            <EmojiPicker onEmojiClick={onEmojiClick} />
+          <div className="absolute bottom-20 md:bottom-24 left-2 md:left-4 z-50 animate-scale-in shadow-2xl rounded-3xl overflow-hidden">
+            <EmojiPicker onEmojiClick={onEmojiClick} width={window.innerWidth - 40} />
           </div>
         )}
 
         {!editingMessage && (
-          <form onSubmit={sendMessage} className="flex items-end gap-3">
+          <form onSubmit={sendMessage} className="flex items-end gap-2">
             <div className="flex-1">
               {selectedImage && (
-                <div className="mb-3 animate-fade-in">
+                <div className="mb-2 animate-fade-in">
                   <ImageUpload
                     onImageSelect={setSelectedImage}
                     selectedImage={selectedImage}
@@ -749,10 +817,10 @@ const ChatScreen: React.FC = () => {
                   />
                 </div>
               )}
-              <div className="flex gap-2 bg-muted/30 p-2 rounded-3xl border-2 border-border/50">
+              <div className="flex gap-2 items-center bg-muted/50 dark:bg-muted/30 p-1.5 rounded-[28px] border border-border/30 shadow-lg">
                 <Input
                   type="text"
-                  placeholder="Type a message... 💬"
+                  placeholder="Message..."
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
                   onFocus={() => startTyping()}
@@ -763,7 +831,7 @@ const ChatScreen: React.FC = () => {
                       sendMessage(e as any);
                     }
                   }}
-                  className="flex-1 smooth-transition focus:shadow-xl focus:ring-2 focus:ring-primary/50 rounded-full px-6 h-12 text-base border-0 bg-transparent focus-visible:ring-offset-0"
+                  className="flex-1 rounded-full px-5 h-14 md:h-12 text-[15px] border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
                   disabled={isLoading}
                 />
                 <div className="flex gap-1">
@@ -776,8 +844,7 @@ const ChatScreen: React.FC = () => {
                       setShowGifPicker(false);
                       setShowStickerPicker(false);
                     }}
-                    className={`h-12 w-12 p-0 hover-scale rounded-full transition-all ${showEmojiPicker ? 'bg-primary/20 text-primary' : 'hover:bg-primary/10'}`}
-                    title="Emoji"
+                    className={`h-11 w-11 p-0 hover-scale rounded-full ${showEmojiPicker ? 'bg-gradient-to-br from-primary to-accent text-white' : ''}`}
                   >
                     <Smile className="h-6 w-6" />
                   </Button>
@@ -790,13 +857,9 @@ const ChatScreen: React.FC = () => {
                       setShowEmojiPicker(false);
                       setShowStickerPicker(false);
                     }}
-                    className={`h-12 px-3 hover-scale rounded-full transition-all ${showGifPicker ? 'bg-primary/20 text-primary' : 'hover:bg-primary/10'}`}
-                    title="GIF"
+                    className={`h-11 w-11 p-0 hover-scale rounded-full ${showGifPicker ? 'bg-gradient-to-br from-primary to-accent text-white' : ''}`}
                   >
-                    <div className="flex items-center gap-1">
-                      <Sparkles className="h-5 w-5" />
-                      <span className="text-sm font-bold">GIF</span>
-                    </div>
+                    <Sparkles className="h-6 w-6" />
                   </Button>
                   <Button
                     type="button"
@@ -807,8 +870,7 @@ const ChatScreen: React.FC = () => {
                       setShowEmojiPicker(false);
                       setShowGifPicker(false);
                     }}
-                    className={`h-12 w-12 p-0 hover-scale rounded-full transition-all ${showStickerPicker ? 'bg-primary/20 text-primary' : 'hover:bg-primary/10'}`}
-                    title="Sticker"
+                    className={`h-11 w-11 p-0 hover-scale rounded-full ${showStickerPicker ? 'bg-gradient-to-br from-primary to-accent text-white' : ''}`}
                   >
                     <Sticker className="h-6 w-6" />
                   </Button>
@@ -825,7 +887,7 @@ const ChatScreen: React.FC = () => {
             <Button
               type="submit"
               disabled={(!newMessage.trim() && !selectedImage) || isLoading}
-              className="rounded-full h-14 w-14 p-0 hover-scale smooth-transition hover:shadow-2xl bg-gradient-to-br from-primary via-primary to-primary/90 shadow-lg shadow-primary/30 disabled:opacity-50"
+              className="rounded-full h-14 w-14 md:h-12 md:w-12 p-0 hover-scale bg-gradient-to-br from-primary via-accent to-[hsl(var(--primary-pink))] shadow-xl disabled:opacity-50"
             >
               <Send className="h-6 w-6" />
             </Button>
