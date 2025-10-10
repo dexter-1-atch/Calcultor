@@ -77,6 +77,7 @@ export type Database = {
           id: string
           image_url: string | null
           message_type: string | null
+          reactions: Json | null
           read_by: Json | null
           reply_to: string | null
           sender_id: string
@@ -91,6 +92,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           message_type?: string | null
+          reactions?: Json | null
           read_by?: Json | null
           reply_to?: string | null
           sender_id: string
@@ -105,6 +107,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           message_type?: string | null
+          reactions?: Json | null
           read_by?: Json | null
           reply_to?: string | null
           sender_id?: string
