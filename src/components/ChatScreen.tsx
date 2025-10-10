@@ -45,6 +45,8 @@ const ChatScreen: React.FC = () => {
   const [editContent, setEditContent] = useState('');
   const [lastActivityTime, setLastActivityTime] = useState(Date.now());
   const [showReactions, setShowReactions] = useState<string | null>(null);
+  const [longPressMessage, setLongPressMessage] = useState<string | null>(null);
+  const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
   const { user, logout } = useAuth();
   const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -75,18 +77,22 @@ const ChatScreen: React.FC = () => {
           table: 'messages',
           filter: `conversation_id=eq.${conversationId}`
         }, (payload) => {
-          const newMessage = payload.new as Message;
+          const newMessage = payload.new as any;
+          const typedMessage: Message = {
+            ...newMessage,
+            reactions: newMessage.reactions || {}
+          };
           setMessages(prev => {
-            const exists = prev.find(m => m.id === newMessage.id);
+            const exists = prev.find(m => m.id === typedMessage.id);
             if (exists) return prev;
-            return [...prev, newMessage].sort((a, b) => 
+            return [...prev, typedMessage].sort((a, b) => 
               new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
             );
           });
           
           // Mark message as read by current user if it's not from them
-          if (newMessage.sender_id !== user.id) {
-            markMessageAsRead(newMessage.id);
+          if (typedMessage.sender_id !== user.id) {
+            markMessageAsRead(typedMessage.id);
           }
         })
         .on('postgres_changes', {
@@ -95,15 +101,19 @@ const ChatScreen: React.FC = () => {
           table: 'messages',
           filter: `conversation_id=eq.${conversationId}`
         }, (payload) => {
-          const updatedMessage = payload.new as Message;
+          const updatedMessage = payload.new as any;
+          const typedMessage: Message = {
+            ...updatedMessage,
+            reactions: updatedMessage.reactions || {}
+          };
           
           // Handle soft deletions by filtering out deleted messages
           setMessages(prev => {
-            if (updatedMessage.deleted_at) {
-              return prev.filter(msg => msg.id !== updatedMessage.id);
+            if (typedMessage.deleted_at) {
+              return prev.filter(msg => msg.id !== typedMessage.id);
             }
             return prev.map(msg => 
-              msg.id === updatedMessage.id ? updatedMessage : msg
+              msg.id === typedMessage.id ? typedMessage : msg
             );
           });
         })
@@ -200,7 +210,10 @@ const ChatScreen: React.FC = () => {
         .order('created_at', { ascending: true });
 
       if (error) throw error;
-      setMessages(data || []);
+      setMessages((data || []).map(msg => ({
+        ...msg,
+        reactions: (msg.reactions as any) || {}
+      })));
     } catch (error) {
       console.error('Error loading messages:', error);
       toast({
@@ -445,6 +458,21 @@ const ChatScreen: React.FC = () => {
     return message.read_by?.[otherUserId] === true;
   };
 
+  const handleLongPressStart = (messageId: string) => {
+    const timer = setTimeout(() => {
+      setLongPressMessage(messageId);
+      setShowReactions(null);
+    }, 500); // 500ms long press
+    setLongPressTimer(timer);
+  };
+
+  const handleLongPressEnd = () => {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      setLongPressTimer(null);
+    }
+  };
+
   const addReaction = async (messageId: string, emoji: string) => {
     if (!user) return;
     
@@ -475,6 +503,7 @@ const ChatScreen: React.FC = () => {
         .update({ reactions: newReactions })
         .eq('id', messageId);
         
+      setLongPressMessage(null);
       setShowReactions(null);
     } catch (error) {
       console.error('Error adding reaction:', error);
@@ -544,139 +573,178 @@ const ChatScreen: React.FC = () => {
             >
               <div className="group relative max-w-[85%] md:max-w-lg">
                 <div
-                  className={`rounded-[24px] p-4 shadow-2xl smooth-transition ${
+                  className={`rounded-[24px] p-3.5 shadow-2xl smooth-transition ${
                     message.sender_id === user?.id
                       ? 'bg-gradient-to-br from-primary via-accent to-[hsl(var(--primary-pink))] text-white'
                       : 'bg-white dark:bg-card border border-border/50 text-foreground'
                   }`}
+                  onMouseDown={() => handleLongPressStart(message.id)}
+                  onMouseUp={handleLongPressEnd}
+                  onMouseLeave={handleLongPressEnd}
+                  onTouchStart={() => handleLongPressStart(message.id)}
+                  onTouchEnd={handleLongPressEnd}
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1">
-                      <p className="text-xs font-bold opacity-80 mb-2">
-                        {getSenderName(message.sender_id)}
-                      </p>
-                      
-                      {/* Show replied message */}
-                      {message.reply_to && (
-                        <div className="mb-2 p-2 bg-black/10 dark:bg-white/10 border-l-4 border-current rounded-lg text-xs">
-                          {(() => {
-                            const repliedMsg = messages.find(m => m.id === message.reply_to);
-                            return repliedMsg ? (
-                              <div>
-                                <p className="font-bold mb-1 flex items-center gap-1">
-                                  <Reply className="h-3 w-3" />
-                                  {getSenderName(repliedMsg.sender_id)}
-                                </p>
-                                <p className="truncate opacity-80">{repliedMsg.content || '📷 Image'}</p>
-                              </div>
-                            ) : <p className="italic opacity-70">Message deleted</p>;
-                          })()}
-                        </div>
-                      )}
-                      
-                      {message.image_url && (
-                        <div className="mb-2">
-                          <img 
-                            src={message.image_url} 
-                            alt={message.message_type === 'gif' ? 'GIF' : 'Shared image'}
-                            className="rounded-2xl max-w-full h-auto cursor-pointer hover-scale smooth-transition shadow-lg"
-                            onClick={() => setViewingImage(message.image_url!)}
-                            style={{ maxHeight: message.message_type === 'gif' ? '250px' : '200px', objectFit: 'cover' }}
-                          />
-                        </div>
-                      )}
-                      
-                      {message.content && (
-                        <p className="text-[15px] break-words leading-relaxed">{message.content}</p>
-                      )}
-                      
-                      {/* Reactions Display */}
-                      {message.reactions && Object.keys(message.reactions).length > 0 && (
-                        <div className="flex flex-wrap gap-1.5 mt-2">
-                          {Object.entries(message.reactions).map(([emoji, users]) => (
-                            users.length > 0 && (
-                              <button
-                                key={emoji}
-                                onClick={() => addReaction(message.id, emoji)}
-                                className="px-2 py-1 bg-white/20 dark:bg-black/20 backdrop-blur-sm rounded-full text-xs font-semibold flex items-center gap-1 hover-scale"
-                              >
-                                <span>{emoji}</span>
-                                <span className="opacity-70">{users.length}</span>
-                              </button>
-                            )
-                          ))}
-                        </div>
-                      )}
-                      
-                      <div className="flex items-center justify-between gap-2 mt-2">
-                        <p className="text-[11px] font-medium opacity-60">
-                          {formatTime(message.created_at)}
-                          {message.updated_at && message.updated_at !== message.created_at && (
-                            <span className="ml-1 italic">(edited)</span>
-                          )}
-                        </p>
-                        {renderReadStatus(message)}
+                  <div className="flex-1">
+                    <p className="text-xs font-bold opacity-80 mb-1.5">
+                      {getSenderName(message.sender_id)}
+                    </p>
+                    
+                    {/* Show replied message */}
+                    {message.reply_to && (
+                      <div className="mb-2 p-2 bg-black/10 dark:bg-white/10 border-l-4 border-current rounded-lg text-xs">
+                        {(() => {
+                          const repliedMsg = messages.find(m => m.id === message.reply_to);
+                          return repliedMsg ? (
+                            <div>
+                              <p className="font-bold mb-1 flex items-center gap-1">
+                                <Reply className="h-3 w-3" />
+                                {getSenderName(repliedMsg.sender_id)}
+                              </p>
+                              <p className="truncate opacity-80">{repliedMsg.content || '📷 Image'}</p>
+                            </div>
+                          ) : <p className="italic opacity-70">Message deleted</p>;
+                        })()}
                       </div>
+                    )}
+                    
+                    {message.image_url && (
+                      <div className="mb-2">
+                        <img 
+                          src={message.image_url} 
+                          alt={message.message_type === 'gif' ? 'GIF' : 'Shared image'}
+                          className="rounded-2xl max-w-full h-auto cursor-pointer hover-scale smooth-transition shadow-lg"
+                          onClick={() => setViewingImage(message.image_url!)}
+                          style={{ maxHeight: message.message_type === 'gif' ? '250px' : '200px', objectFit: 'cover' }}
+                        />
+                      </div>
+                    )}
+                    
+                    {message.content && (
+                      <p className="text-[15px] break-words leading-relaxed">{message.content}</p>
+                    )}
+                    
+                    {/* Reactions Display */}
+                    {message.reactions && Object.keys(message.reactions).length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {Object.entries(message.reactions).map(([emoji, users]) => (
+                          users.length > 0 && (
+                            <button
+                              key={emoji}
+                              onClick={() => addReaction(message.id, emoji)}
+                              className="px-2 py-0.5 bg-white/20 dark:bg-black/20 backdrop-blur-sm rounded-full text-xs font-semibold flex items-center gap-1 hover-scale"
+                            >
+                              <span>{emoji}</span>
+                              <span className="opacity-70">{users.length}</span>
+                            </button>
+                          )
+                        ))}
+                      </div>
+                    )}
+                    
+                    <div className="flex items-center justify-between gap-2 mt-1.5">
+                      <p className="text-[11px] font-medium opacity-60">
+                        {formatTime(message.created_at)}
+                        {message.updated_at && message.updated_at !== message.created_at && (
+                          <span className="ml-1 italic">(edited)</span>
+                        )}
+                      </p>
+                      {renderReadStatus(message)}
                     </div>
                   </div>
-                  
-                  {/* Quick Actions - Mobile friendly */}
-                  <div className="flex gap-1 mt-2 pt-2 border-t border-current/10">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setShowReactions(showReactions === message.id ? null : message.id)}
-                      className="h-7 px-2 text-xs hover-scale rounded-full"
-                    >
-                      ❤️
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setReplyingTo(message)}
-                      className="h-7 px-2 text-xs hover-scale rounded-full"
-                    >
-                      <Reply className="h-3.5 w-3.5" />
-                    </Button>
-                    {message.sender_id === user?.id && (
-                      <>
-                        {message.message_type === 'text' && (
+                </div>
+                
+                {/* Long Press Action Menu */}
+                {longPressMessage === message.id && (
+                  <>
+                    <div 
+                      className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+                      onClick={() => setLongPressMessage(null)}
+                    />
+                    <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 bg-white dark:bg-card rounded-3xl shadow-2xl p-4 min-w-[280px] animate-scale-in border-2 border-primary/20">
+                      <div className="space-y-2">
+                        <Button
+                          onClick={() => {
+                            setShowReactions(message.id);
+                            setLongPressMessage(null);
+                          }}
+                          className="w-full justify-start gap-3 h-12 text-base bg-gradient-to-r from-primary/10 to-accent/10 hover:from-primary/20 hover:to-accent/20"
+                          variant="ghost"
+                        >
+                          <span className="text-xl">❤️</span>
+                          React
+                        </Button>
+                        <Button
+                          onClick={() => {
+                            setReplyingTo(message);
+                            setLongPressMessage(null);
+                          }}
+                          className="w-full justify-start gap-3 h-12 text-base hover:bg-muted"
+                          variant="ghost"
+                        >
+                          <Reply className="h-5 w-5" />
+                          Reply
+                        </Button>
+                        {message.sender_id === user?.id && message.message_type === 'text' && (
                           <Button
-                            size="sm"
+                            onClick={() => {
+                              startEditingMessage(message);
+                              setLongPressMessage(null);
+                            }}
+                            className="w-full justify-start gap-3 h-12 text-base hover:bg-muted"
                             variant="ghost"
-                            onClick={() => startEditingMessage(message)}
-                            className="h-7 px-2 text-xs hover-scale rounded-full"
                           >
-                            <Edit2 className="h-3.5 w-3.5" />
+                            <Edit2 className="h-5 w-5" />
+                            Edit
+                          </Button>
+                        )}
+                        {message.sender_id === user?.id && (
+                          <Button
+                            onClick={() => {
+                              deleteMessage(message.id);
+                              setLongPressMessage(null);
+                            }}
+                            className="w-full justify-start gap-3 h-12 text-base text-destructive hover:bg-destructive/10"
+                            variant="ghost"
+                          >
+                            <Trash2 className="h-5 w-5" />
+                            Delete
                           </Button>
                         )}
                         <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => deleteMessage(message.id)}
-                          className="h-7 px-2 text-xs hover-scale rounded-full text-destructive"
+                          onClick={() => setLongPressMessage(null)}
+                          className="w-full h-12 text-base mt-2"
+                          variant="outline"
                         >
-                          <Trash2 className="h-3.5 w-3.5" />
+                          Cancel
                         </Button>
-                      </>
-                    )}
-                  </div>
-                  
-                  {/* Reaction Picker */}
-                  {showReactions === message.id && (
-                    <div className="flex gap-2 mt-2 p-2 bg-white/30 dark:bg-black/30 backdrop-blur-xl rounded-2xl animate-scale-in">
-                      {['❤️', '👍', '😂', '😮', '😢', '🔥'].map(emoji => (
-                        <button
-                          key={emoji}
-                          onClick={() => addReaction(message.id, emoji)}
-                          className="text-2xl hover-scale transition-transform"
-                        >
-                          {emoji}
-                        </button>
-                      ))}
+                      </div>
                     </div>
-                  )}
-                </div>
+                  </>
+                )}
+                
+                {/* Reaction Picker Popup */}
+                {showReactions === message.id && (
+                  <>
+                    <div 
+                      className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+                      onClick={() => setShowReactions(null)}
+                    />
+                    <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 bg-white dark:bg-card rounded-3xl shadow-2xl p-6 animate-scale-in border-2 border-primary/20">
+                      <h3 className="text-lg font-bold mb-4 text-center">Choose a reaction</h3>
+                      <div className="flex gap-4 justify-center">
+                        {['❤️', '👍', '😂', '😮', '😢', '🔥'].map(emoji => (
+                          <button
+                            key={emoji}
+                            onClick={() => addReaction(message.id, emoji)}
+                            className="text-4xl hover-scale transition-transform active:scale-90"
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           ))
