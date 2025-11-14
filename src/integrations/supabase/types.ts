@@ -67,10 +67,29 @@ export type Database = {
         }
         Relationships: []
       }
+      couples: {
+        Row: {
+          created_at: string | null
+          id: string
+          setup_complete: boolean | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          setup_complete?: boolean | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          setup_complete?: boolean | null
+        }
+        Relationships: []
+      }
       messages: {
         Row: {
           content: string
           conversation_id: string
+          couple_id: string | null
           created_at: string
           deleted_at: string | null
           deleted_by: string | null
@@ -86,6 +105,7 @@ export type Database = {
         Insert: {
           content: string
           conversation_id: string
+          couple_id?: string | null
           created_at?: string
           deleted_at?: string | null
           deleted_by?: string | null
@@ -101,6 +121,7 @@ export type Database = {
         Update: {
           content?: string
           conversation_id?: string
+          couple_id?: string | null
           created_at?: string
           deleted_at?: string | null
           deleted_by?: string | null
@@ -115,6 +136,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "messages_couple_id_fkey"
+            columns: ["couple_id"]
+            isOneToOne: false
+            referencedRelation: "couples"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "messages_reply_to_fkey"
             columns: ["reply_to"]
             isOneToOne: false
@@ -125,36 +153,41 @@ export type Database = {
       }
       profiles: {
         Row: {
-          avatar_url: string | null
-          bio: string | null
+          couple_id: string
           created_at: string | null
-          display_name: string | null
+          display_name: string
           id: string
-          updated_at: string | null
-          user_id: string
-          username: string | null
+          is_creator: boolean | null
+          password_hash: string
+          username: string
         }
         Insert: {
-          avatar_url?: string | null
-          bio?: string | null
+          couple_id: string
           created_at?: string | null
-          display_name?: string | null
+          display_name: string
           id?: string
-          updated_at?: string | null
-          user_id: string
-          username?: string | null
+          is_creator?: boolean | null
+          password_hash: string
+          username: string
         }
         Update: {
-          avatar_url?: string | null
-          bio?: string | null
+          couple_id?: string
           created_at?: string | null
-          display_name?: string | null
+          display_name?: string
           id?: string
-          updated_at?: string | null
-          user_id?: string
-          username?: string | null
+          is_creator?: boolean | null
+          password_hash?: string
+          username?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_couple_id_fkey"
+            columns: ["couple_id"]
+            isOneToOne: false
+            referencedRelation: "couples"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_status: {
         Row: {
