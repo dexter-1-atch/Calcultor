@@ -188,10 +188,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      is_authenticated_staff: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
-      }
+      is_authenticated_staff: { Args: never; Returns: boolean }
       is_conversation_participant: {
         Args: { conversation_id: string; user_id: string }
         Returns: boolean
