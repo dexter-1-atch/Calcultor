@@ -17,6 +17,7 @@ interface Message {
   id: string;
   content: string;
   sender_id: string;
+  sender_name?: string;
   created_at: string;
   image_url?: string | null;
   read_by?: any;
@@ -24,6 +25,7 @@ interface Message {
   deleted_by?: string | null;
   message_type?: string;
   conversation_id: string;
+  couple_id?: string;
   updated_at?: string;
   reply_to?: string | null;
   reactions?: Record<string, string[]>; // emoji -> array of user IDs
@@ -47,11 +49,10 @@ const ChatScreen: React.FC = () => {
   const [showReactions, setShowReactions] = useState<string | null>(null);
   const [longPressMessage, setLongPressMessage] = useState<string | null>(null);
   const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
-  const { user, logout } = useAuth();
+  const { user, logout, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const conversationId = '00000000-0000-0000-0000-000000000001';
-  const { typingUsers, startTyping, stopTyping } = useTypingIndicator({ conversationId });
+  const { typingUsers, startTyping, stopTyping } = useTypingIndicator({ conversationId: user?.coupleId || '' });
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -62,7 +63,7 @@ const ChatScreen: React.FC = () => {
   }, [messages]);
 
   useEffect(() => {
-    if (user) {
+    if (user?.coupleId) {
       initializeChat();
       
       // Set online status when user logs in
@@ -75,7 +76,7 @@ const ChatScreen: React.FC = () => {
           event: 'INSERT',
           schema: 'public',
           table: 'messages',
-          filter: `conversation_id=eq.${conversationId}`
+          filter: `couple_id=eq.${user.coupleId}`
         }, (payload) => {
           const newMessage = payload.new as any;
           const typedMessage: Message = {
@@ -99,7 +100,7 @@ const ChatScreen: React.FC = () => {
           event: 'UPDATE',
           schema: 'public',
           table: 'messages',
-          filter: `conversation_id=eq.${conversationId}`
+          filter: `couple_id=eq.${user.coupleId}`
         }, (payload) => {
           const updatedMessage = payload.new as any;
           const typedMessage: Message = {
@@ -165,35 +166,6 @@ const ChatScreen: React.FC = () => {
 
   const initializeChat = async () => {
     try {
-      // Ensure conversation exists
-      const { error: conversationError } = await supabase
-        .from('conversations')
-        .upsert({
-          id: conversationId,
-          created_by: user?.id || 'system'
-        });
-
-      if (conversationError) {
-        console.error('Conversation error:', conversationError);
-      }
-
-      // Add both users as participants (ignore if already exist)
-      const participants = [
-        { conversation_id: conversationId, user_id: 'serish' },
-        { conversation_id: conversationId, user_id: 'jiya' }
-      ];
-
-      const { error: participantsError } = await supabase
-        .from('conversation_participants')
-        .upsert(participants, { 
-          onConflict: 'conversation_id,user_id',
-          ignoreDuplicates: true 
-        });
-
-      if (participantsError && participantsError.code !== '23505') {
-        console.error('Participants error:', participantsError);
-      }
-
       await loadMessages();
     } catch (error) {
       console.error('Error initializing chat:', error);
@@ -201,11 +173,13 @@ const ChatScreen: React.FC = () => {
   };
 
   const loadMessages = async () => {
+    if (!user?.coupleId) return;
+
     try {
       const { data, error } = await supabase
         .from('messages')
         .select('*')
-        .eq('conversation_id', conversationId)
+        .eq('couple_id', user.coupleId)
         .is('deleted_at', null)
         .order('created_at', { ascending: true });
 
@@ -256,7 +230,7 @@ const ChatScreen: React.FC = () => {
 
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if ((!newMessage.trim() && !selectedImage) || !user) return;
+    if ((!newMessage.trim() && !selectedImage) || !user?.coupleId) return;
 
     setIsLoading(true);
     try {
@@ -268,14 +242,18 @@ const ChatScreen: React.FC = () => {
       const { error } = await supabase
         .from('messages')
         .insert({
-          conversation_id: conversationId,
+          couple_id: user.coupleId,
+          conversation_id: '',
           content: newMessage.trim() || '',
           sender_id: user.id,
+          sender_name: user.name,
           image_url: imageUrl,
           message_type: imageUrl ? 'image' : 'text',
           read_by: { [user.id]: true },
-          reply_to: replyingTo?.id || null
-        });
+          reply_to: replyingTo?.id || null,
+          reactions: {},
+          is_read: false
+        } as any);
 
       if (error) throw error;
 
@@ -305,21 +283,25 @@ const ChatScreen: React.FC = () => {
 
   const onGifClick = async (gif: any, e: any) => {
     e.preventDefault();
-    if (!user) return;
+    if (!user?.coupleId) return;
 
     setIsLoading(true);
     try {
       const { error } = await supabase
         .from('messages')
         .insert({
-          conversation_id: conversationId,
+          couple_id: user.coupleId,
+          conversation_id: '',
           content: '',
           sender_id: user.id,
+          sender_name: user.name,
           image_url: gif.images.original.url,
           message_type: 'gif',
           read_by: { [user.id]: true },
-          reply_to: replyingTo?.id || null
-        });
+          reply_to: replyingTo?.id || null,
+          reactions: {},
+          is_read: false
+        } as any);
 
       if (error) throw error;
 
